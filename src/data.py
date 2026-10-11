@@ -26,21 +26,18 @@ def load_raw(name: str = "mnist"):
 
 
 def normalize(X: np.ndarray) -> np.ndarray:
-    """Đưa pixel về [0, 1], kiểu float32."""
-    # TODO (Uyên)
-    raise NotImplementedError
+    return X.astype(np.float32) / 255.0
 
 
 def flatten(X: np.ndarray) -> np.ndarray:
-    """(N, 28, 28) -> (N, 784)."""
-    # TODO (Uyên)
-    raise NotImplementedError
+    return X.reshape(X.shape[0], -1)
 
 
 def train_val_split(X, y, val_size: int = 10_000, seed: int = SEED):
-    """Xáo trộn rồi tách validation từ tập train. Trả về X_train, y_train, X_val, y_val."""
-    # TODO (Uyên)
-    raise NotImplementedError
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(len(X))
+    val_idx, train_idx = idx[:val_size], idx[val_size:]
+    return X[train_idx], y[train_idx], X[val_idx], y[val_idx]
 
 
 def load_dataset(name: str = "mnist"):
