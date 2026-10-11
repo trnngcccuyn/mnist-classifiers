@@ -46,7 +46,10 @@ Dữ liệu được tải tự động vào `data/` ở lần chạy đầu ti�
 python -m experiments.run_all --dataset mnist
 
 # Thí nghiệm siêu tham số; biểu đồ lưu vào results/figures/
-python -m experiments.hyperparams
+python -m experiments.hyperparams.logistic_regression
+python -m experiments.hyperparams.mlp
+python -m experiments.hyperparams.naive_bayes
+python -m experiments.hyperparams.random_forest
 
 # Phần mở rộng
 python -m experiments.cnn_vs_mlp
