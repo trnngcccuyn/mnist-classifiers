@@ -47,7 +47,10 @@ The datasets are downloaded automatically into `data/` on first run.
 python -m experiments.run_all --dataset mnist
 
 # Hyperparameter experiments; figures are saved to results/figures/
-python -m experiments.hyperparams
+python -m experiments.hyperparams.logistic_regression
+python -m experiments.hyperparams.mlp
+python -m experiments.hyperparams.naive_bayes
+python -m experiments.hyperparams.random_forest
 
 # Extensions
 python -m experiments.cnn_vs_mlp
