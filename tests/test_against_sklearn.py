@@ -38,7 +38,3 @@ def test_naive_bayes_close_to_sklearn():
 
 @pytest.mark.skip(reason="TODO: chưa cài Logistic Regression")
 def test_logistic_regression_close_to_sklearn(): ...
-
-
-@pytest.mark.skip(reason="TODO: chưa cài Random Forest")
-def test_random_forest_close_to_sklearn(): ...
