@@ -19,6 +19,8 @@ def main():
     smoothing = float(best["var_smoothing"])
     model = GaussianNaiveBayes(var_smoothing=smoothing).fit(data["X_train"], data["y_train"])
     test_metrics = evaluate(data["y_test"], model.predict(data["X_test"]))
+    print(f"Tốt nhất trên validation: var_smoothing={smoothing:g}")
+    print(f"Kết quả test: {test_metrics}")
 
 
 if __name__ == "__main__":
