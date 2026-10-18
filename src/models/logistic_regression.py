@@ -3,13 +3,7 @@
 import numpy as np
 
 from .base import BaseClassifier
-
-
-def softmax(Z: np.ndarray) -> np.ndarray:
-    """Softmax theo từng hàng, trừ max để tránh tràn số khi lấy exp."""
-    Z = Z - Z.max(axis=1, keepdims=True)
-    E = np.exp(Z)
-    return E / E.sum(axis=1, keepdims=True)
+from .nn_utils import cross_entropy, softmax, softmax_cross_entropy_grad
 
 
 class LogisticRegression(BaseClassifier):
@@ -29,12 +23,9 @@ class LogisticRegression(BaseClassifier):
 
     def loss_and_grad(self, X, y):
         """Trả về (loss, dW, db) của cross-entropy trung bình trên batch (X, y)."""
-        n = len(X)
         P = softmax(X @ self.W + self.b)
-        loss = -np.mean(np.log(P[np.arange(n), y] + 1e-12)) + 0.5 * self.l2 * np.sum(self.W**2)
-        G = P.copy()
-        G[np.arange(n), y] -= 1  # dL/dZ = P - Y (Y là one-hot)
-        G /= n
+        loss = cross_entropy(P, y) + 0.5 * self.l2 * np.sum(self.W**2)
+        G = softmax_cross_entropy_grad(P, y)
         dW = X.T @ G + self.l2 * self.W
         db = G.sum(axis=0)
         return loss, dW, db
