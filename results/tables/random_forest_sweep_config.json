@@ -14,12 +14,14 @@
     4,
     8,
     12,
-    16
+    16,
+    20,
+    24
   ],
   "base_depth": 12,
   "max_features": "sqrt",
   "max_thresholds": 16,
   "selection": "Chọn n_trees trước, rồi chọn max_depth; không phải grid search",
   "selected_n_trees": 100,
-  "selected_max_depth": 16
+  "selected_max_depth": 24
 }
