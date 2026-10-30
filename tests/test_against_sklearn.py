@@ -30,11 +30,5 @@ def test_metrics_match_sklearn():
         assert np.allclose(precision_recall_f1_macro(y_true, y_pred), expected)
 
 
-@pytest.mark.skip(reason="TODO: chưa cài Naive Bayes")
-def test_naive_bayes_close_to_sklearn():
-    # sklearn.naive_bayes.GaussianNB: accuracy chênh không quá vài điểm %
-    ...
-
-
 @pytest.mark.skip(reason="TODO: chưa cài Logistic Regression")
 def test_logistic_regression_close_to_sklearn(): ...
