@@ -12,7 +12,7 @@ from src.utils import Timer
 
 from .common import sweep
 
-VAR_SMOOTHINGS = [1e-9, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0]
+VAR_SMOOTHINGS = [1e-9, 1e-5, 1e-4, 1e-3, 1e-2, 0.03, 0.05, 0.1, 0.2, 0.3, 1.0]
 
 
 def main():
