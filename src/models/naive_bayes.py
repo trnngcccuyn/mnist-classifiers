@@ -17,6 +17,13 @@ import numpy as np
 from .base import BaseClassifier
 
 
+def _posterior_from_log_joint(log_joint):
+    """Chuẩn hóa exp(log_joint) thành posterior; mỗi hàng có tổng bằng 1."""
+    # Trừ max mỗi hàng trước khi exp để không bị tràn số.
+    scores = np.exp(log_joint - log_joint.max(axis=1, keepdims=True))
+    return scores / scores.sum(axis=1, keepdims=True)
+
+
 class GaussianNaiveBayes(BaseClassifier):
     name = "naive_bayes"
 
@@ -68,10 +75,7 @@ class GaussianNaiveBayes(BaseClassifier):
                 + batch @ self._scaled_mean.T
                 - 0.5 * (batch * batch) @ self._inverse_var.T
             )
-            log_joint -= log_joint.max(axis=1, keepdims=True)
-            # Chuẩn hóa exp(log_joint) thành posterior; mỗi hàng có tổng bằng 1.
-            scores = np.exp(log_joint)
-            proba[start : start + len(batch)] = scores / scores.sum(axis=1, keepdims=True)
+            proba[start : start + len(batch)] = _posterior_from_log_joint(log_joint)
         return proba
 
     def predict(self, X) -> np.ndarray:
