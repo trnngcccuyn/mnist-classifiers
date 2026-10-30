@@ -20,7 +20,7 @@ from .base import BaseClassifier
 class GaussianNaiveBayes(BaseClassifier):
     name = "naive_bayes"
 
-    def __init__(self, var_smoothing: float = 1e-2):
+    def __init__(self, var_smoothing: float = 0.1):
         if var_smoothing <= 0:
             raise ValueError("var_smoothing phải lớn hơn 0")
         self.var_smoothing = var_smoothing
