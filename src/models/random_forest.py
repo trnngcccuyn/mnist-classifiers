@@ -1,12 +1,17 @@
 """Decision Tree và Random Forest triển khai trực tiếp bằng NumPy. Phụ trách: Tiên.
 
-Có sử dụng OpenAI Codex để hỗ trợ viết và rà soát mã; cần khai báo trong báo cáo.
-Phần lõi tự tính Gini, chọn phép chia, xây cây và lấy mẫu bootstrap.
-scikit-learn chỉ dùng trong tests/ để đối chiếu.
+Phần lõi tự cài: tính Gini, chọn phép chia, xây cây, lấy mẫu bootstrap và lấy trung bình
+xác suất của các cây. scikit-learn chỉ dùng trong tests/ để đối chiếu.
 
-Mặc định mỗi nút của rừng xét sqrt(D) đặc trưng và tối đa 16 ngưỡng mỗi đặc trưng.
-Đây là tìm kiếm ngưỡng xấp xỉ để giảm thời gian chạy MNIST. Đặt max_thresholds=None
-để xét tất cả trung điểm giữa các giá trị khác nhau.
+Tìm phép chia xấp xỉ để chạy nhanh trên MNIST: mỗi nút chỉ xét sqrt(D) đặc trưng và tối đa
+max_thresholds = 16 ngưỡng cho mỗi đặc trưng. Đặt max_thresholds=None để xét mọi trung điểm
+giữa các giá trị khác nhau.
+
+Các cây được train song song bằng joblib (n_jobs=-1 dùng mọi nhân CPU). Bootstrap và seed
+của từng cây được rút tuần tự trước khi chạy song song, nên:
+- kết quả giống hệt nhau với mọi giá trị n_jobs;
+- k cây đầu của rừng chính là rừng k cây cùng seed, nên thí nghiệm số cây chỉ cần train
+  rừng lớn nhất một lần rồi gọi predict_proba(X, n_trees=k).
 """
 
 from __future__ import annotations
@@ -14,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from joblib import Parallel, delayed
 
 from .base import BaseClassifier
 
@@ -205,6 +211,12 @@ class DecisionTree:
         return self.classes_[proba.argmax(axis=1)]
 
 
+def _fit_tree(X, y, bootstrap, classes, seed, params):
+    """Train một cây trên mẫu bootstrap; để ở cấp module để joblib gửi sang tiến trình con."""
+    tree = DecisionTree(rng=np.random.default_rng(seed), **params)
+    return tree.fit(X[bootstrap], y[bootstrap], classes=classes)
+
+
 class RandomForest(BaseClassifier):
     """Rừng bootstrap với xác suất dự đoán là trung bình xác suất của các cây."""
 
@@ -219,6 +231,7 @@ class RandomForest(BaseClassifier):
         min_samples_split: int = 10,
         min_samples_leaf: int = 1,
         max_thresholds: int | None = 16,
+        n_jobs: int = -1,
     ):
         if not isinstance(n_trees, (int, np.integer)) or n_trees < 1:
             raise ValueError("n_trees phải là số nguyên >= 1")
@@ -229,42 +242,53 @@ class RandomForest(BaseClassifier):
             seed,
         )
         self.min_samples_split, self.min_samples_leaf = min_samples_split, min_samples_leaf
-        self.max_thresholds = max_thresholds
+        self.max_thresholds, self.n_jobs = max_thresholds, n_jobs
         self.trees = []
 
     def fit(self, X_train, y_train, X_val=None, y_val=None):
-        """Mỗi cây học từ N mẫu lấy có hoàn lại; validation không dùng để xây cây."""
+        """Mỗi cây học từ N mẫu lấy có hoàn lại; validation không dùng để xây cây.
+
+        Bootstrap và seed của từng cây được rút tuần tự trước khi chạy song song,
+        nên kết quả giống hệt nhau với mọi n_jobs, và k cây đầu của rừng chính là
+        rừng k cây cùng seed.
+        """
         X = _check_X(X_train)
         y = np.asarray(y_train)
         if y.ndim != 1 or len(y) != len(X) or len(y) == 0:
             raise ValueError("y_train phải có dạng (N,) và train phải có ít nhất một mẫu")
         self.classes_, self.n_features_in_ = np.unique(y), X.shape[1]
         rng = np.random.default_rng(self.seed)
-        trees = []
+        draws = []
         for _ in range(self.n_trees):
             bootstrap = rng.integers(0, len(y), size=len(y))
-            tree = DecisionTree(
-                max_depth=self.max_depth,
-                min_samples_split=self.min_samples_split,
-                max_features=self.max_features,
-                rng=np.random.default_rng(rng.integers(0, 2**32)),
-                min_samples_leaf=self.min_samples_leaf,
-                max_thresholds=self.max_thresholds,
-            )
-            tree.fit(X[bootstrap], y[bootstrap], classes=self.classes_)
-            trees.append(tree)
-        self.trees = trees
+            draws.append((bootstrap, rng.integers(0, 2**32)))
+        params = {
+            "max_depth": self.max_depth,
+            "min_samples_split": self.min_samples_split,
+            "max_features": self.max_features,
+            "min_samples_leaf": self.min_samples_leaf,
+            "max_thresholds": self.max_thresholds,
+        }
+        self.trees = Parallel(n_jobs=self.n_jobs)(
+            delayed(_fit_tree)(X, y, bootstrap, self.classes_, seed, params)
+            for bootstrap, seed in draws
+        )
         return self
 
-    def predict_proba(self, X) -> np.ndarray:
+    def predict_proba(self, X, n_trees: int | None = None) -> np.ndarray:
+        """Trung bình xác suất của n_trees cây đầu; mặc định dùng cả rừng."""
         if not self.trees:
             raise RuntimeError("Cần gọi fit trước khi dự đoán")
+        if n_trees is None:
+            n_trees = len(self.trees)
+        if not isinstance(n_trees, (int, np.integer)) or not 1 <= n_trees <= len(self.trees):
+            raise ValueError("n_trees phải là số nguyên trong 1..số cây đã train")
         X = _check_X(X, self.n_features_in_)
         proba = np.zeros((len(X), len(self.classes_)), dtype=np.float64)
-        for tree in self.trees:
+        for tree in self.trees[:n_trees]:
             proba += tree._predict_proba(X)
-        return proba / len(self.trees)
+        return proba / n_trees
 
-    def predict(self, X) -> np.ndarray:
-        proba = self.predict_proba(X)
+    def predict(self, X, n_trees: int | None = None) -> np.ndarray:
+        proba = self.predict_proba(X, n_trees)
         return self.classes_[proba.argmax(axis=1)]

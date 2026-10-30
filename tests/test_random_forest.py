@@ -105,3 +105,21 @@ def test_input_shape_validation(model):
 def test_invalid_hyperparameters(kwargs):
     with pytest.raises(ValueError):
         RandomForest(**kwargs).fit(np.zeros((3, 2)), np.array([0, 1, 1]))
+
+
+def test_first_trees_equal_smaller_forest():
+    X, y = make_blobs(n_samples=200, n_features=4, centers=3, random_state=0)
+    big = RandomForest(n_trees=5, max_depth=4, seed=3).fit(X, y)
+    small = RandomForest(n_trees=2, max_depth=4, seed=3).fit(X, y)
+    assert np.array_equal(big.predict_proba(X, n_trees=2), small.predict_proba(X))
+    assert np.array_equal(big.predict(X, n_trees=2), small.predict(X))
+    for n_trees in (0, 6):
+        with pytest.raises(ValueError):
+            big.predict_proba(X, n_trees=n_trees)
+
+
+def test_parallel_fit_matches_sequential():
+    X, y = make_blobs(n_samples=200, n_features=4, centers=3, random_state=0)
+    sequential = RandomForest(n_trees=4, max_depth=4, n_jobs=1).fit(X, y)
+    parallel = RandomForest(n_trees=4, max_depth=4, n_jobs=2).fit(X, y)
+    assert np.array_equal(sequential.predict_proba(X), parallel.predict_proba(X))
