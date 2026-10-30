@@ -9,10 +9,11 @@ from src.metrics import accuracy
 from src.utils import Timer, set_seed
 
 
-def sweep(model_cls, param_name, values, data, fixed=None):
+def sweep(model_cls, param_name, values, data, fixed=None, dataset="mnist"):
     """Huấn luyện model_cls với từng giá trị của param_name, lưu bảng CSV và biểu đồ.
 
     fixed: dict các siêu tham số khác giữ cố định trong suốt thí nghiệm.
+    dataset: khác "mnist" thì được thêm vào tên file, để không ghi đè kết quả MNIST.
     """
     rows = []
     for value in values:
@@ -32,6 +33,8 @@ def sweep(model_cls, param_name, values, data, fixed=None):
 
     df = pd.DataFrame(rows)
     name = f"{model_cls.name}_{param_name}"
+    if dataset != "mnist":
+        name = f"{dataset}_{name}"
     os.makedirs("results/tables", exist_ok=True)
     os.makedirs("results/figures", exist_ok=True)
     df.to_csv(f"results/tables/hyperparam_{name}.csv", index=False)
