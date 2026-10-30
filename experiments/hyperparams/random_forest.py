@@ -12,14 +12,13 @@ from pathlib import Path
 import pandas as pd
 
 from src.data import load_dataset
-from src.metrics import confusion_matrix, evaluate
+from src.metrics import accuracy, confusion_matrix, evaluate
 from src.models.random_forest import RandomForest
 from src.utils import SEED, Timer
-
-from .common import sweep
+from .common import save_sweep, sweep
 
 N_TREES = [10, 25, 50, 100]
-MAX_DEPTHS = [4, 8, 12, 16]
+MAX_DEPTHS = [4, 8, 12, 16, 20, 24]
 
 
 def _parse_args():
@@ -40,12 +39,33 @@ def _parse_args():
     return args
 
 
+def _sweep_n_trees(data, n_trees_values, fixed):
+    """Train rừng lớn nhất một lần rồi đánh giá theo k cây đầu.
+
+    k cây đầu chính là rừng k cây cùng seed, nên không cần train lại cho từng k.
+    fit_time_s của k cây được ước lượng tỉ lệ với k từ thời gian train cả rừng.
+    """
+    model = RandomForest(n_trees=max(n_trees_values), **fixed)
+    with Timer() as timer:
+        model.fit(data["X_train"], data["y_train"])
+    rows = []
+    for k in n_trees_values:
+        rows.append(
+            {
+                "n_trees": str(k),
+                "train_acc": accuracy(data["y_train"], model.predict(data["X_train"], n_trees=k)),
+                "val_acc": accuracy(data["y_val"], model.predict(data["X_val"], n_trees=k)),
+                "fit_time_s": timer.elapsed * k / model.n_trees,
+            }
+        )
+        print(rows[-1])
+    return save_sweep(pd.DataFrame(rows), RandomForest.name, "n_trees")
+
+
 def _select_model(data, args):
     """Chọn số cây trước, rồi chọn độ sâu bằng validation accuracy."""
     fixed = {"seed": SEED, "max_thresholds": args.max_thresholds}
-    trees_result = sweep(
-        RandomForest, "n_trees", args.n_trees, data, fixed={**fixed, "max_depth": args.base_depth}
-    )
+    trees_result = _sweep_n_trees(data, args.n_trees, {**fixed, "max_depth": args.base_depth})
     best_n_trees = int(trees_result.loc[trees_result["val_acc"].idxmax(), "n_trees"])
     depths_result = sweep(
         RandomForest, "max_depth", args.max_depths, data, fixed={**fixed, "n_trees": best_n_trees}
@@ -67,6 +87,7 @@ def _evaluate_model(model, data, val_accuracy):
         "max_depth": model.max_depth,
         "max_thresholds": model.max_thresholds,
         "seed": model.seed,
+        "n_jobs": model.n_jobs,
         "train_size": len(data["y_train"]),
         "val_accuracy": val_accuracy,
         **{f"test_{key}": value for key, value in test_metrics.items()},
