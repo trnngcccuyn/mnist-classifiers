@@ -224,8 +224,8 @@ class RandomForest(BaseClassifier):
 
     def __init__(
         self,
-        n_trees: int = 50,
-        max_depth: int | None = 12,
+        n_trees: int = 100,
+        max_depth: int | None = 24,
         max_features="sqrt",
         seed: int = 42,
         min_samples_split: int = 10,
