@@ -1,0 +1,27 @@
+{
+  "dataset": "mnist",
+  "seed": 42,
+  "train_size": 50000,
+  "val_size": 10000,
+  "test_size": 10000,
+  "n_trees_values": [
+    10,
+    25,
+    50,
+    100
+  ],
+  "max_depth_values": [
+    4,
+    8,
+    12,
+    16,
+    20,
+    24
+  ],
+  "base_depth": 12,
+  "max_features": "sqrt",
+  "max_thresholds": 16,
+  "selection": "Chọn n_trees trước, rồi chọn max_depth; không phải grid search",
+  "selected_n_trees": 100,
+  "selected_max_depth": 24
+}

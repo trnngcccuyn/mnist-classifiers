@@ -1,0 +1,2 @@
+n_trees,max_depth,max_thresholds,seed,n_jobs,train_size,val_accuracy,test_accuracy,test_precision,test_recall,test_f1,fit_time_s,test_predict_time_s
+100,24,16,42,-1,50000,0.9677,0.9673,0.967040303452016,0.9670495950338646,0.9670264554036858,13.497727583977394,0.6243885830044746

@@ -30,9 +30,12 @@ def sweep(model_cls, param_name, values, data, fixed=None, dataset="mnist"):
             }
         )
         print(rows[-1])
+    return save_sweep(pd.DataFrame(rows), model_cls.name, param_name, dataset)
 
-    df = pd.DataFrame(rows)
-    name = f"{model_cls.name}_{param_name}"
+
+def save_sweep(df, model_name, param_name, dataset="mnist"):
+    """Lưu bảng CSV và biểu đồ train/validation accuracy theo param_name."""
+    name = f"{model_name}_{param_name}"
     if dataset != "mnist":
         name = f"{dataset}_{name}"
     os.makedirs("results/tables", exist_ok=True)
@@ -46,7 +49,7 @@ def sweep(model_cls, param_name, values, data, fixed=None, dataset="mnist"):
     ax.set_xticks(x, df[param_name])
     ax.set_xlabel(param_name)
     ax.set_ylabel("accuracy")
-    ax.set_title(f"{model_cls.name}: {param_name}")
+    ax.set_title(f"{model_name}: {param_name}")
     ax.legend()
     ax.grid(alpha=0.3)
     fig.savefig(f"results/figures/hyperparam_{name}.png", dpi=150, bbox_inches="tight")
