@@ -12,9 +12,10 @@ from pathlib import Path
 import pandas as pd
 
 from src.data import load_dataset
-from src.metrics import accuracy, confusion_matrix, evaluate
+from src.metrics import accuracy, evaluate
 from src.models.random_forest import RandomForest
 from src.utils import SEED, Timer
+
 from .common import save_sweep, sweep
 
 N_TREES = [10, 25, 50, 100]
@@ -94,7 +95,7 @@ def _evaluate_model(model, data, val_accuracy):
         "fit_time_s": fit_timer.elapsed,
         "test_predict_time_s": predict_timer.elapsed,
     }
-    return summary, prediction
+    return summary
 
 
 def main():
@@ -127,11 +128,8 @@ def main():
         json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
 
-    summary, prediction = _evaluate_model(model, data, val_accuracy)
+    summary = _evaluate_model(model, data, val_accuracy)
     pd.DataFrame([summary]).to_csv(tables / "mnist_random_forest_best.csv", index=False)
-    pd.DataFrame(confusion_matrix(data["y_test"], prediction)).to_csv(
-        tables / "mnist_random_forest_confusion.csv", index=False
-    )
     print(f"Cấu hình được chọn và kết quả test: {summary}")
 
 
