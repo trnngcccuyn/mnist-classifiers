@@ -1,2 +1,0 @@
-var_smoothing,train_size,val_accuracy,test_accuracy,test_precision,test_recall,test_f1,fit_time_s,test_predict_time_s
-0.05,50000,0.7991,0.8145,0.8299547411494685,0.8109408385451434,0.8128206158006817,0.23975008307024837,0.014689208008348942
