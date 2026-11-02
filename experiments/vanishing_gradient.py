@@ -21,6 +21,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
 
 from src.data import load_dataset
 from src.models.mlp import ACTIVATIONS, MLP
@@ -53,7 +54,8 @@ def grad_norms(data, n_samples=512):
     df = pd.DataFrame(rows)
     df.to_csv("results/tables/vanishing_gradient_grad_norms.csv", index=False)
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    # sharey: hai mạng dùng chung trục y nên so trực tiếp được độ lớn gradient
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
     width = 0.27
     for ax, (net, sub) in zip(axes, df.groupby("network", sort=False)):
         for k, act in enumerate(ACTIVATIONS):
@@ -62,11 +64,17 @@ def grad_norms(data, n_samples=512):
                 s["layer"] + (k - 1) * width, s["grad_norm"], width, label=act, color=COLORS[act]
             )
         ax.set_yscale("log")
+        # Chỉ hiện các mốc 0.0001, 0.001, ..., 10 dạng số thường; bỏ nhãn phụ kiểu 6×10^-1
+        ax.yaxis.set_major_locator(LogLocator(base=10))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+        ax.yaxis.set_minor_formatter(NullFormatter())
         ax.set_xlabel("lớp l (1 = gần đầu vào)")
-        ax.set_ylabel("||dJ/dW^(l)||  (log)")
-        ax.set_title(f"{net}: chuẩn gradient lúc khởi tạo")
+        ax.set_title(f"{net}: độ lớn gradient lúc khởi tạo")
         ax.set_xticks(sorted(sub["layer"].unique()))
         ax.grid(alpha=0.3, axis="y")
+    axes[0].set_ylabel(
+        "độ lớn gradient của lớp l\n" + r"$\|\partial J / \partial W^{(l)}\|$ (thang log)"
+    )
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.06))
     fig.savefig("results/figures/vanishing_gradient_grad_norms.png", dpi=150, bbox_inches="tight")
