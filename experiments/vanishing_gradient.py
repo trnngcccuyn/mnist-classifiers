@@ -72,6 +72,7 @@ def grad_norms(data, n_samples=512):
         ax.set_title(f"{net}: độ lớn gradient lúc khởi tạo")
         ax.set_xticks(sorted(sub["layer"].unique()))
         ax.grid(alpha=0.3, axis="y")
+        ax.tick_params(axis="y", labelleft=True)  # sharey ẩn số ở hình phải; hiện lại cho dễ đọc
     axes[0].set_ylabel(
         "độ lớn gradient của lớp l\n" + r"$\|\partial J / \partial W^{(l)}\|$ (thang log)"
     )
