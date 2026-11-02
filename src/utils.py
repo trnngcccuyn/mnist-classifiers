@@ -29,3 +29,25 @@ class Timer:
     def __exit__(self, *exc):
         self.elapsed = time.perf_counter() - self._start
         return False
+
+
+PROBS_DIR = "results/probs"
+
+
+def save_probs(probs, dataset: str, model_name: str, split: str) -> str:
+    """Lưu xác suất dự đoán (N, n_classes) ra results/probs/<dataset>/<model>_<split>.npy.
+
+    Thứ tự mẫu đúng như load_dataset() trả về; dùng cho phần ensemble mà không phải train lại.
+    """
+    import os
+
+    path = os.path.join(PROBS_DIR, dataset, f"{model_name}_{split}.npy")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    np.save(path, np.asarray(probs, dtype=np.float32))
+    return path
+
+
+def load_probs(dataset: str, model_name: str, split: str) -> np.ndarray:
+    import os
+
+    return np.load(os.path.join(PROBS_DIR, dataset, f"{model_name}_{split}.npy"))

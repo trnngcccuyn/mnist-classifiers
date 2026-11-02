@@ -16,3 +16,6 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+# Cache công cụ
+*.egg-info/
+.ruff_cache/
