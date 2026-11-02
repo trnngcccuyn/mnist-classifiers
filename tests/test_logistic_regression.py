@@ -45,3 +45,13 @@ def test_loss_decreases():
     model = LogisticRegression(n_classes=2, epochs=10, lr=0.1).fit(X, y)
     assert model.history["train_loss"][-1] < model.history["train_loss"][0]
     assert np.mean(model.predict(X) == y) > 0.9
+
+
+def test_history_stores_python_floats():
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(64, 10)).astype(np.float32)
+    y = rng.integers(0, 3, size=64)
+    model = LogisticRegression(n_classes=3, epochs=2, l2=1e-3).fit(X, y, X, y)
+    for key in ("train_loss", "val_loss", "val_acc"):
+        assert len(model.history[key]) == 2
+        assert all(type(v) is float for v in model.history[key])
