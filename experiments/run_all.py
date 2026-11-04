@@ -25,6 +25,7 @@ import pandas as pd
 
 from src.data import load_dataset
 from src.metrics import confusion_matrix, evaluate
+from src.models.cnn import SimpleCNN
 from src.models.logistic_regression import LogisticRegression
 from src.models.mlp import MLP
 from src.models.naive_bayes import BernoulliNaiveBayes, GaussianNaiveBayes
@@ -44,6 +45,9 @@ MODEL_CONFIGS = {
     "mlp": (MLP, {"hidden_sizes": (256, 128), "lr": 0.05, "momentum": 0.9, "epochs": 20}),
     # 100 cây, độ sâu 24: val 96.77% (PR #13); ghi rõ thay vì dựa vào mặc định của class
     "random_forest": (RandomForest, {"n_trees": 100, "max_depth": 24}),
+    # Conv32-Conv64-FC128 (slide 12 B6b), Adam lr 1e-3, batch 128, 10 epoch: val 98.83% ± 0.14%
+    # (3 seed); val acc phẳng từ epoch ~7 (results/tables/cnn_vs_mlp_curves.csv)
+    "cnn": (SimpleCNN, {"lr": 1e-3, "epochs": 10, "batch_size": 128}),
 }
 METRICS = ["accuracy", "precision", "recall", "f1", "fit_time_s", "predict_time_s"]
 
