@@ -46,7 +46,7 @@ MODEL_CONFIGS = {
     # 100 cây, độ sâu 24: val 96.77% (PR #13); ghi rõ thay vì dựa vào mặc định của class
     "random_forest": (RandomForest, {"n_trees": 100, "max_depth": 24}),
     # Conv32-Conv64-FC128 (slide 12 B6b), Adam lr 1e-3, batch 128, 10 epoch: val 98.83% ± 0.14%
-    # (3 seed); val acc phẳng từ epoch ~7 (results/tables/cnn_vs_mlp_curves.csv)
+    # (3 seed); chạy 20 epoch chỉ thêm ≤ 0.1% val acc (learning_curve_cnn_summary.csv)
     "cnn": (SimpleCNN, {"lr": 1e-3, "epochs": 10, "batch_size": 128}),
 }
 METRICS = ["accuracy", "precision", "recall", "f1", "fit_time_s", "predict_time_s"]
