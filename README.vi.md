@@ -48,6 +48,7 @@ python -m experiments.run_all --dataset mnist
 # Thí nghiệm siêu tham số; biểu đồ lưu vào results/figures/
 python -m experiments.hyperparams.logistic_regression
 python -m experiments.hyperparams.mlp
+python -m experiments.hyperparams.cnn
 python -m experiments.hyperparams.naive_bayes
 python -m experiments.hyperparams.random_forest
 
