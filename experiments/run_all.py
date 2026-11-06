@@ -8,7 +8,9 @@ Mỗi mô hình lưu:
 - một dòng cho mỗi (seed, tập train / val / test) trong results/tables/<dataset>_summary.csv
   (accuracy, precision, recall, F1 macro, thời gian huấn luyện và dự đoán);
 - bảng gộp theo seed (trung bình, độ lệch chuẩn): results/tables/<dataset>_summary_agg.csv;
-- ma trận nhầm lẫn trên test: results/tables/<dataset>_<model>_confusion.csv;
+- ma trận nhầm lẫn trên test: results/tables/<dataset>_<model>_confusion.csv và hình
+  results/figures/<dataset>_<model>_confusion.png;
+- hình so sánh các mô hình trên test: results/figures/<dataset>_model_comparison.png;
 - xác suất dự đoán trên val và test: results/probs/<dataset>/<model>_{val,test}.npy,
   để làm ensemble mà không phải train lại.
 Ma trận nhầm lẫn và xác suất lấy từ seed đầu tiên trong --seeds.
@@ -30,6 +32,7 @@ from src.models.logistic_regression import LogisticRegression
 from src.models.mlp import MLP
 from src.models.naive_bayes import BernoulliNaiveBayes, GaussianNaiveBayes
 from src.models.random_forest import RandomForest
+from src.plotting import plot_confusion, plot_model_comparison
 from src.utils import SEED, Timer, save_probs, set_seed
 
 # Cấu hình cuối, chọn theo validation (xem experiments/hyperparams/ và results/tables/hyperparam_*):
@@ -84,6 +87,7 @@ def run_model(name, d, dataset, seed, save_outputs):
         if save_outputs and split == "test":
             cm = confusion_matrix(y, y_pred)
             pd.DataFrame(cm).to_csv(f"results/tables/{dataset}_{name}_confusion.csv", index=False)
+            plot_confusion(cm, name, f"{dataset}_{name}_confusion.png")
     print(f"Xong {name} (seed {rows[-1]['seed']}): test acc = {rows[-1]['accuracy']:.4f}")
     return rows
 
@@ -125,6 +129,7 @@ def main():
     agg = aggregate(df)
     agg.to_csv(f"results/tables/{args.dataset}_summary_agg.csv", index=False)
     test = agg[agg["split"] == "test"]
+    plot_model_comparison(test, f"{args.dataset}_model_comparison.png")
     print(
         test[["model", "n_seeds", "accuracy_mean", "accuracy_std", "fit_time_s_mean"]].to_string(
             index=False
