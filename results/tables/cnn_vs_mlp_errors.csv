@@ -1,0 +1,5 @@
+case,n_images
+cả hai đúng,9794
+chỉ MLP sai,125
+chỉ CNN sai,37
+cả hai sai,44
