@@ -21,11 +21,11 @@ Kết quả: results/tables/learning_curve_cnn{,_summary}.csv, results/figures/l
 import argparse
 import os
 
-import matplotlib.pyplot as plt
 import pandas as pd
 
 from experiments.run_all import MODEL_CONFIGS
 from src.data import load_dataset
+from src.plotting import MODEL_COLORS, plot_learning_curves
 from src.utils import Timer, set_seed
 
 MAX_EPOCHS = 20
@@ -74,30 +74,16 @@ def summarize(curves, chosen=CHOSEN_EPOCHS):
     return pd.concat([df, mean], ignore_index=True)
 
 
-def plot(curves, path, chosen=CHOSEN_EPOCHS):
+def plot(curves, chosen=CHOSEN_EPOCHS):
     """Trung bình theo seed, dải mờ ± 1 độ lệch chuẩn; nét đứt: số epoch đang dùng."""
-    g = curves.groupby("epoch")
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-    panels = [
-        ("train_loss", "train loss (cross-entropy)", "Train loss"),
-        ("val_loss", "validation loss (cross-entropy)", "Validation loss"),
-        ("val_acc", "validation accuracy", "Validation accuracy"),
-    ]
-    for ax, (col, ylabel, title) in zip(axes, panels):
-        mean, std = g[col].mean(), g[col].std(ddof=1).fillna(0.0)
-        ax.plot(mean.index, mean, marker="o", ms=3, color="tab:orange")
-        ax.fill_between(mean.index, mean - std, mean + std, color="tab:orange", alpha=0.2)
-        ax.axvline(chosen, ls="--", lw=1, color="gray", label=f"{chosen} epoch (run_all)")
-        ax.set_xlabel("epoch")
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        ax.grid(alpha=0.3)
-    axes[0].set_yscale("log")
-    axes[2].set_ylim(0.965, 0.995)
-    axes[2].legend(fontsize=8, loc="lower right")
-    fig.suptitle(f"CNN: learning curve (trung bình {curves['seed'].nunique()} seed)", y=1.02)
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    plot_learning_curves(
+        curves,
+        "learning_curve_cnn.png",
+        f"CNN: learning curve (trung bình {curves['seed'].nunique()} seed)",
+        colors={None: MODEL_COLORS["cnn"]},
+        mark_epoch=chosen,
+        log_loss=True,
+    )
 
 
 def main():
@@ -113,10 +99,9 @@ def main():
     summary = summarize(curves)
 
     os.makedirs("results/tables", exist_ok=True)
-    os.makedirs("results/figures", exist_ok=True)
     curves.to_csv("results/tables/learning_curve_cnn.csv", index=False)
     summary.to_csv("results/tables/learning_curve_cnn_summary.csv", index=False)
-    plot(curves, "results/figures/learning_curve_cnn.png")
+    plot(curves)
 
     print("\n" + summary.round(4).to_string(index=False))
     per_epoch = curves.groupby("epoch")["val_acc"].agg(["mean", "std"])

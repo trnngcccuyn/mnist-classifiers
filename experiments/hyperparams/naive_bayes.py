@@ -10,13 +10,12 @@ Cấu hình tốt nhất của mỗi biến thể (theo validation) được đ�
 
 import argparse
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from src.data import load_dataset
 from src.models.naive_bayes import BernoulliNaiveBayes, GaussianNaiveBayes
-from src.plotting import save_figure
+from src.plotting import plot_class_images
 
 from .common import best, evaluate_on_test, sweep
 
@@ -27,15 +26,12 @@ ALPHAS = [0.01, 0.1, 0.5, 1.0]
 
 def plot_pixel_probs(model, dataset):
     """Vẽ xác suất pixel bật p[c, j] của từng lớp thành ảnh 28x28."""
-    probs = np.exp(model.feature_log_prob_).reshape(-1, 28, 28)
-    fig, axes = plt.subplots(2, 5, figsize=(10, 4.4))
-    for ax, image, label in zip(axes.flat, probs, model.classes_):
-        shown = ax.imshow(image, cmap="viridis", vmin=0, vmax=1)
-        ax.set_title(f"lớp {label}")
-        ax.axis("off")
-    fig.colorbar(shown, ax=axes, shrink=0.8, label="P(pixel bật | lớp)")
-    fig.suptitle("Bernoulli NB: xác suất pixel bật của từng lớp")
-    save_figure(fig, f"{dataset}_bernoulli_naive_bayes_pixel_probs.png")
+    plot_class_images(
+        np.exp(model.feature_log_prob_),
+        f"{dataset}_bernoulli_naive_bayes_pixel_probs.png",
+        "Bernoulli NB: xác suất pixel bật của từng lớp",
+        "P(pixel bật | lớp)",
+    )
 
 
 def main():

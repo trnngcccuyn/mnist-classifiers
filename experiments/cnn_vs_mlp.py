@@ -24,18 +24,17 @@ hai mô hình chạy trên cùng một máy.
 import argparse
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from experiments.run_all import MODEL_CONFIGS
 from src.data import load_dataset
 from src.metrics import accuracy
+from src.plotting import MODEL_COLORS, plot_learning_curves
 from src.utils import SEED, Timer, set_seed
 
 MODELS = ("mlp", "cnn")
-COLORS = {"mlp": "tab:blue", "cnn": "tab:orange"}
-TABLES, FIGURES = "results/tables", "results/figures"
+TABLES = "results/tables"
 
 
 def train_one(name, seed, X_tr, y_tr, X_val, y_val):
@@ -148,27 +147,16 @@ def permuted_pixels(d, seed, original):
     return pd.DataFrame(rows)
 
 
-def plot_curves(curves, path):
-    """Train loss và val acc theo epoch: trung bình theo seed, dải mờ là ± 1 độ lệch chuẩn."""
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    for ax, metric, label in zip(
-        axes, ("train_loss", "val_acc"), ("train loss (cross-entropy)", "validation accuracy")
-    ):
-        for name in MODELS:
-            g = curves[curves["model"] == name].groupby("epoch")[metric]
-            mean, std = g.mean(), g.std(ddof=1).fillna(0.0)
-            ax.plot(mean.index, mean, marker="o", ms=3, color=COLORS[name], label=name.upper())
-            ax.fill_between(mean.index, mean - std, mean + std, color=COLORS[name], alpha=0.2)
-        ax.set_xlabel("epoch")
-        ax.set_ylabel(label)
-        ax.grid(alpha=0.3)
-        ax.legend()
-    axes[0].set_yscale("log")
-    axes[1].set_ylim(0.97, 1.0)
-    n_seeds = curves["seed"].nunique()
-    fig.suptitle(f"MLP và CNN trên MNIST (trung bình {n_seeds} seed)")
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+def plot_curves(curves):
+    """Theo epoch: trung bình theo seed, dải mờ là ± 1 độ lệch chuẩn."""
+    plot_learning_curves(
+        curves,
+        "cnn_vs_mlp_curves.png",
+        f"MLP và CNN trên MNIST (trung bình {curves['seed'].nunique()} seed)",
+        group="model",
+        colors=MODEL_COLORS,
+        log_loss=True,
+    )
 
 
 def main():
@@ -178,7 +166,6 @@ def main():
     args = parser.parse_args()
 
     os.makedirs(TABLES, exist_ok=True)
-    os.makedirs(FIGURES, exist_ok=True)
     d = load_dataset("mnist")
 
     df, curves, preds = compare(d, args.seeds)
@@ -186,7 +173,7 @@ def main():
     curves.to_csv(f"{TABLES}/cnn_vs_mlp_curves.csv", index=False)
     agg = aggregate(df)
     agg.to_csv(f"{TABLES}/cnn_vs_mlp_agg.csv", index=False)
-    plot_curves(curves, f"{FIGURES}/cnn_vs_mlp_curves.png")
+    plot_curves(curves)
 
     errors, per_class = error_overlap(d["y_test"], preds)
     errors.to_csv(f"{TABLES}/cnn_vs_mlp_errors.csv", index=False)
