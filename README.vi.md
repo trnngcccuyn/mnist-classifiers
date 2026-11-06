@@ -11,9 +11,7 @@ Regression, MLP, Random Forest), huấn luyện trên MNIST và so sánh về đ
 gian huấn luyện, thời gian dự đoán và khả năng giải thích. Phần mở rộng: CNN đơn giản,
 tăng cường dữ liệu và Fashion-MNIST. scikit-learn chỉ được dùng để đối chiếu kết quả.
 
-<!-- TODO: bỏ chú thích khi đã có hình
-![So sánh các mô hình](results/figures/model_comparison.png)
--->
+![So sánh các mô hình](results/figures/mnist_model_comparison.png)
 
 ## Thông tin nhóm
 
@@ -57,6 +55,9 @@ python -m experiments.cnn_vs_mlp
 python -m experiments.augmentation_exp
 python -m experiments.run_all --dataset fashion_mnist
 
+# Vẽ lại các hình từ bảng đã lưu, không phải train lại
+python -m experiments.make_figures --dataset mnist
+
 # Đối chiếu với scikit-learn
 pytest
 ```
@@ -65,15 +66,22 @@ Kết quả chính có thể tái tạo bằng `notebooks/main_results.ipynb`.
 
 ## Kết quả
 
-MNIST, 50.000 train / 10.000 validation / 10.000 test, seed 42. TODO: điền sau khi chạy.
+MNIST, 50.000 train / 10.000 validation / 10.000 test (chia cố định với seed 42), dùng cấu
+hình đã chọn theo validation trong `experiments/run_all.py`. Mô hình có yếu tố ngẫu nhiên được
+chạy với nhiều seed, ghi trung bình ± độ lệch chuẩn; Naïve Bayes tất định nên chạy một lần.
+Nguồn: `results/tables/mnist_summary_agg.csv`.
 
-| Mô hình | Acc. train | Acc. val. | Acc. test | F1 macro (test) | TG huấn luyện | TG dự đoán |
-|---|---|---|---|---|---|---|
-| Naïve Bayes | | | | | | |
-| Logistic Regression | | | | | | |
-| MLP | | | | | | |
-| Random Forest | | | | | | |
-| CNN | | | | | | |
+| Mô hình | Số seed | Acc. train | Acc. val. | Acc. test | F1 macro (test) | TG huấn luyện (s) | TG dự đoán 10k ảnh (s) |
+|---|---|---|---|---|---|---|---|
+| Gaussian Naïve Bayes | 1 | 80.26% | 79.91% | 81.45% | 0.8128 | 0.9 | 0.07 |
+| Bernoulli Naïve Bayes | 1 | 83.45% | 83.52% | 84.51% | 0.8432 | 0.4 | 0.06 |
+| Logistic Regression | 3 | 92.51% ± 0.05% | 91.74% ± 0.07% | 92.22% ± 0.12% | 0.9211 | 3.8 | 0.01 |
+| MLP | 3 | 100.00% ± 0.00% | 98.01% ± 0.13% | 98.25% ± 0.10% | 0.9824 | 23.4 | 0.04 |
+| Random Forest | 1 | 99.89% | 96.80% | 96.69% | 0.9667 | 18.3 | 0.61 |
+| CNN | 3 | 99.68% ± 0.22% | 98.83% ± 0.14% | 99.02% ± 0.18% | 0.9901 | 141.6 | 1.16 |
+
+Thời gian phụ thuộc máy (CPU, số nhân, máy đang bận) nên chỉ so được giữa các mô hình chạy
+trên cùng một máy. Random Forest train các cây song song trên mọi nhân CPU.
 
 ## Cấu trúc thư mục
 
@@ -84,9 +92,10 @@ mnist-classifiers/
 │   ├── metrics.py              # accuracy, precision, recall, F1, confusion matrix
 │   ├── augmentation.py         # xoay, dịch, nhiễu
 │   ├── utils.py                # seed, đo thời gian
+│   ├── plotting.py             # kiểu vẽ hình dùng chung
 │   └── models/
 │       ├── base.py             # interface chung fit / predict / predict_proba
-│       ├── naive_bayes.py      # Gaussian Naïve Bayes
+│       ├── naive_bayes.py      # Gaussian và Bernoulli Naïve Bayes
 │       ├── logistic_regression.py  # softmax regression + mini-batch GD
 │       ├── mlp.py              # MLP + backpropagation
 │       ├── random_forest.py    # ensemble
