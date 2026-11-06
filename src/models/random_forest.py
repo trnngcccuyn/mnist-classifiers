@@ -1,17 +1,27 @@
-"""Decision Tree và Random Forest triển khai trực tiếp bằng NumPy. Phụ trách: Tiên.
+"""Decision Tree và Random Forest tự cài bằng NumPy.  Phụ trách: Tiên
 
-Phần lõi tự cài: tính Gini, chọn phép chia, xây cây, lấy mẫu bootstrap và lấy trung bình
-xác suất của các cây. scikit-learn chỉ dùng trong tests/ để đối chiếu.
+Decision Tree (CART, tiêu chí Gini):
+    Gini(nút) = 1 - tổng_c p_c**2, với p_c là tỉ lệ mẫu lớp c trong nút.
+    Tại mỗi nút, thử các cặp (pixel j, ngưỡng t): mẫu có x[j] <= t sang trái, còn lại sang phải.
+    Chọn cặp có Gini sau chia nhỏ nhất:
+        Gini_chia = (N_trái * Gini(trái) + N_phải * Gini(phải)) / N
+    Dừng (thành lá) khi nút chỉ còn một lớp, có ít hơn min_samples_split mẫu, đạt max_depth,
+    hoặc không phép chia nào làm Gini giảm. Lá lưu tỉ lệ các lớp, dùng làm xác suất dự đoán.
 
-Tìm phép chia xấp xỉ để chạy nhanh trên MNIST: mỗi nút chỉ xét sqrt(D) đặc trưng và tối đa
-max_thresholds = 16 ngưỡng cho mỗi đặc trưng. Đặt max_thresholds=None để xét mọi trung điểm
-giữa các giá trị khác nhau.
+Để chạy đủ nhanh trên MNIST, mỗi nút chỉ xét:
+    - max_features = "sqrt": sqrt(784) = 28 pixel chọn ngẫu nhiên;
+    - max_thresholds = 16 ngưỡng cách đều trong các trung điểm giữa hai giá trị liền kề
+      (max_thresholds = None: xét mọi trung điểm).
 
-Các cây được train song song bằng joblib (n_jobs=-1 dùng mọi nhân CPU). Bootstrap và seed
-của từng cây được rút tuần tự trước khi chạy song song, nên:
-- kết quả giống hệt nhau với mọi giá trị n_jobs;
-- k cây đầu của rừng chính là rừng k cây cùng seed, nên thí nghiệm số cây chỉ cần train
-  rừng lớn nhất một lần rồi gọi predict_proba(X, n_trees=k).
+Random Forest:
+    Mỗi cây học trên một mẫu bootstrap (rút N mẫu có hoàn lại từ N mẫu train).
+    Xác suất của rừng = trung bình xác suất của các cây; nhãn = lớp có xác suất lớn nhất.
+
+Các cây được train song song bằng joblib (chỉ để nhanh hơn, không đổi thuật toán). Mẫu bootstrap
+và seed của từng cây được rút trước, theo thứ tự, nên:
+    - kết quả giống hệt nhau với mọi n_jobs;
+    - k cây đầu của rừng chính là rừng k cây cùng seed, nên thí nghiệm số cây chỉ cần train
+      rừng lớn nhất một lần rồi gọi predict_proba(X, n_trees=k).
 """
 
 from __future__ import annotations
@@ -24,249 +34,166 @@ from joblib import Parallel, delayed
 from .base import BaseClassifier
 
 
-def gini(counts: np.ndarray) -> float:
-    """Gini = 1 - tổng p_c**2; counts là số mẫu theo từng lớp, không phải nhãn."""
-    total = counts.sum()
-    if total == 0:
-        return 0.0
-    return float(1.0 - np.sum((counts / total) ** 2))
+def gini(counts):
+    """Gini của một nút từ số mẫu mỗi lớp; counts có thể là ma trận (mỗi hàng một nút)."""
+    counts = np.asarray(counts, dtype=np.float64)
+    total = counts.sum(axis=-1, keepdims=True)
+    p = counts / np.maximum(total, 1)
+    return np.where(total[..., 0] > 0, 1.0 - np.sum(p**2, axis=-1), 0.0)
 
 
 @dataclass
-class _Node:
-    proba: np.ndarray
-    feature: int | None = None
+class Node:
+    proba: np.ndarray  # tỉ lệ các lớp trong nút
+    feature: int | None = None  # None nghĩa là lá
     threshold: float | None = None
-    left: _Node | None = None
-    right: _Node | None = None
-
-
-def _check_X(X, n_features=None):
-    X = np.asarray(X)
-    if X.ndim != 2 or X.shape[1] == 0 or not np.isfinite(X).all():
-        raise ValueError("X phải là ma trận (N, D) hữu hạn với D > 0")
-    if n_features is not None and X.shape[1] != n_features:
-        raise ValueError("Số đặc trưng phải bằng số đặc trưng khi fit")
-    return X
+    left: Node | None = None
+    right: Node | None = None
 
 
 class DecisionTree:
-    """Cây phân loại dùng Gini và giới hạn số đặc trưng/ngưỡng được xét tại mỗi nút."""
-
     def __init__(
         self,
         max_depth: int | None = 12,
         min_samples_split: int = 10,
-        max_features=None,
-        rng=None,
-        min_samples_leaf: int = 1,
+        max_features: str | None = None,
         max_thresholds: int | None = 16,
+        seed=42,
     ):
-        if max_depth is not None and (
-            not isinstance(max_depth, (int, np.integer)) or max_depth < 0
-        ):
-            raise ValueError("max_depth phải là số nguyên >= 0 hoặc None")
-        if not isinstance(min_samples_split, (int, np.integer)) or min_samples_split < 2:
-            raise ValueError("min_samples_split phải là số nguyên >= 2")
-        if not isinstance(min_samples_leaf, (int, np.integer)) or min_samples_leaf < 1:
-            raise ValueError("min_samples_leaf phải là số nguyên >= 1")
-        if max_thresholds is not None and (
-            not isinstance(max_thresholds, (int, np.integer)) or max_thresholds < 1
-        ):
-            raise ValueError("max_thresholds phải là số nguyên >= 1 hoặc None")
-        self.max_depth, self.min_samples_split = max_depth, min_samples_split
-        self.max_features, self.rng = max_features, rng
-        self.min_samples_leaf, self.max_thresholds = min_samples_leaf, max_thresholds
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.max_features = max_features
+        self.max_thresholds = max_thresholds
+        self.seed = seed
 
-    def fit(self, X, y, *, classes=None):
-        """Xây cây; classes giữ thứ tự cột xác suất chung giữa các cây bootstrap."""
-        X = _check_X(X)
-        y = np.asarray(y)
-        if y.ndim != 1 or len(y) != len(X) or len(y) == 0:
-            raise ValueError("y phải có dạng (N,) và train phải có ít nhất một mẫu")
+    def fit(self, X, y, classes=None):
+        """classes: danh sách nhãn của cả rừng, để mọi cây có cùng thứ tự cột xác suất
+        (mẫu bootstrap có thể thiếu một lớp)."""
+        X, y = np.asarray(X), np.asarray(y)
         self.classes_ = np.unique(y) if classes is None else np.asarray(classes)
-        if self.classes_.ndim != 1 or not np.array_equal(self.classes_, np.unique(self.classes_)):
-            raise ValueError("classes phải là danh sách nhãn đã sắp xếp và không trùng")
-        if not np.isin(y, self.classes_).all():
-            raise ValueError("classes phải chứa mọi nhãn trong y")
-        self.n_features_in_ = X.shape[1]
-        self._n_features = self._resolve_max_features()
-        self._rng = np.random.default_rng(42 if self.rng is None else self.rng)
-        self._X, self._y = X, np.searchsorted(self.classes_, y)
-        try:
-            self.root_ = self._grow_tree(np.arange(len(y)), depth=0)
-        finally:
-            # Cây đã học chỉ giữ các nút, không giữ toàn bộ dữ liệu train.
-            del self._X, self._y
+        y = np.searchsorted(self.classes_, y)  # đổi nhãn thành chỉ số 0..K-1
+        n_features = X.shape[1]
+        self._n_try = n_features if self.max_features is None else int(np.sqrt(n_features))
+        self._rng = np.random.default_rng(self.seed)
+        self.root_ = self._grow(X, y, np.arange(len(y)), depth=0)
         return self
 
-    def _resolve_max_features(self):
-        """Đổi cấu hình max_features thành số đặc trưng cần lấy tại mỗi nút."""
-        if self.max_features is None:
-            return self.n_features_in_
-        if self.max_features == "sqrt":
-            return max(1, int(np.sqrt(self.n_features_in_)))
-        if self.max_features == "log2":
-            return max(1, int(np.log2(self.n_features_in_)))
-        if isinstance(self.max_features, (int, np.integer)) and (
-            1 <= self.max_features <= self.n_features_in_
-        ):
-            return int(self.max_features)
-        raise ValueError("max_features phải là None, 'sqrt', 'log2' hoặc số nguyên 1..D")
-
-    def _candidate_thresholds(self, values):
-        """Lấy các trung điểm; giới hạn số ngưỡng theo max_thresholds nếu được đặt."""
-        unique_values = np.unique(values).astype(np.float64)
-        positions = np.arange(len(unique_values) - 1)
-        if self.max_thresholds is not None and len(positions) > self.max_thresholds:
-            positions = np.linspace(0, len(unique_values) - 2, self.max_thresholds, dtype=int)
-        lower = unique_values[positions]
-        upper = unique_values[positions + 1]
-        return lower + (upper - lower) / 2
-
-    def _split_impurities(self, values, labels, thresholds, counts):
-        """Tính Gini sau chia cho mọi ngưỡng của một đặc trưng bằng histogram."""
-        n_classes = len(self.classes_)
-        # side='left' đảm bảo điều kiện nhánh trái là x <= threshold.
-        bins = np.searchsorted(thresholds, values, side="left")
-        histogram = np.bincount(
-            bins * n_classes + labels, minlength=(len(thresholds) + 1) * n_classes
-        ).reshape(-1, n_classes)
-        left_counts = histogram.cumsum(axis=0)[:-1].astype(np.float64)
-        right_counts = counts - left_counts
-        n_left = left_counts.sum(axis=1)
-        n_right = right_counts.sum(axis=1)
-        valid = (n_left >= self.min_samples_leaf) & (n_right >= self.min_samples_leaf)
-
-        # (N_L * Gini_L + N_R * Gini_R) / N.
-        impurities = (
-            n_left
-            - (left_counts * left_counts).sum(axis=1) / np.maximum(n_left, 1)
-            + n_right
-            - (right_counts * right_counts).sum(axis=1) / np.maximum(n_right, 1)
-        ) / len(labels)
-        impurities[~valid] = np.inf
-        return impurities
-
-    def _best_split(self, indices, counts):
-        """Chọn phép chia giảm Gini nhiều nhất trong các đặc trưng/ngưỡng được xét."""
-        labels = self._y[indices]
-        features = self._rng.choice(self.n_features_in_, self._n_features, replace=False)
-        best_impurity = gini(counts)
-        best_split = None
-        for feature in features:
-            values = self._X[indices, feature]
-            thresholds = self._candidate_thresholds(values)
-            if len(thresholds) == 0:
-                continue
-            impurities = self._split_impurities(values, labels, thresholds, counts)
-            position = int(np.argmin(impurities))
-            if impurities[position] < best_impurity - 1e-12:
-                best_impurity = impurities[position]
-                best_split = int(feature), float(thresholds[position])
-        return best_split
-
-    def _grow_tree(self, indices, depth):
-        counts = np.bincount(self._y[indices], minlength=len(self.classes_))
-        node = _Node(proba=counts / len(indices))
+    def _grow(self, X, y, indices, depth):
+        """Xây cây con cho các mẫu indices (đệ quy)."""
+        counts = np.bincount(y[indices], minlength=len(self.classes_))
+        node = Node(proba=counts / len(indices))
         if (
             np.count_nonzero(counts) == 1
             or len(indices) < self.min_samples_split
             or (self.max_depth is not None and depth >= self.max_depth)
         ):
             return node
-        split = self._best_split(indices, counts)
+
+        split = self._best_split(X, y, indices, counts)
         if split is None:
             return node
         node.feature, node.threshold = split
-        mask = self._X[indices, node.feature] <= node.threshold
-        node.left = self._grow_tree(indices[mask], depth + 1)
-        node.right = self._grow_tree(indices[~mask], depth + 1)
+        goes_left = X[indices, node.feature] <= node.threshold
+        node.left = self._grow(X, y, indices[goes_left], depth + 1)
+        node.right = self._grow(X, y, indices[~goes_left], depth + 1)
         return node
 
-    def predict_proba(self, X) -> np.ndarray:
-        if not hasattr(self, "root_"):
-            raise RuntimeError("Cần gọi fit trước khi dự đoán")
-        X = _check_X(X, self.n_features_in_)
-        return self._predict_proba(X)
+    def _thresholds(self, values):
+        """Trung điểm giữa các giá trị khác nhau liền kề; lấy cách đều nếu quá max_thresholds."""
+        unique = np.unique(values).astype(np.float64)
+        midpoints = (unique[:-1] + unique[1:]) / 2
+        if self.max_thresholds is not None and len(midpoints) > self.max_thresholds:
+            picked = np.linspace(0, len(midpoints) - 1, self.max_thresholds).astype(int)
+            midpoints = midpoints[picked]
+        return midpoints
 
-    def _predict_proba(self, X):
-        """Duyệt cây; X đã được kiểm tra bởi cây hoặc rừng trước khi gọi."""
-        proba = np.empty((len(X), len(self.classes_)), dtype=np.float64)
-        stack = [(self.root_, np.arange(len(X)))]
-        while stack:
-            node, indices = stack.pop()
-            if len(indices) == 0:
-                continue
-            if node.feature is None:
-                proba[indices] = node.proba
-            else:
-                mask = X[indices, node.feature] <= node.threshold
-                stack.append((node.left, indices[mask]))
-                stack.append((node.right, indices[~mask]))
+    def _best_split(self, X, y, indices, counts):
+        """Trả về (pixel, ngưỡng) làm Gini giảm nhiều nhất, hoặc None nếu không giảm được."""
+        n = len(indices)
+        one_hot = np.eye(len(self.classes_), dtype=np.float32)[y[indices]]  # (n, K)
+        best_gini, best_split = gini(counts), None
+
+        features = self._rng.choice(X.shape[1], self._n_try, replace=False)
+        for feature in features:
+            values = X[indices, feature]
+            thresholds = self._thresholds(values)
+            if len(thresholds) == 0:
+                continue  # pixel hằng số trong nút, không chia được
+            # Hàng t: mẫu nào sang trái với ngưỡng t. Nhân với one-hot ra số mẫu mỗi lớp.
+            goes_left = values[None, :] <= thresholds[:, None]  # (T, n)
+            left_counts = goes_left @ one_hot  # (T, K)
+            right_counts = counts - left_counts
+            n_left = left_counts.sum(axis=1)
+            split_gini = (n_left * gini(left_counts) + (n - n_left) * gini(right_counts)) / n
+
+            t = int(np.argmin(split_gini))
+            if split_gini[t] < best_gini - 1e-12:
+                best_gini, best_split = split_gini[t], (int(feature), float(thresholds[t]))
+        return best_split
+
+    def predict_proba(self, X) -> np.ndarray:
+        X = np.asarray(X)
+        proba = np.zeros((len(X), len(self.classes_)))
+        self._fill_proba(self.root_, X, np.arange(len(X)), proba)
         return proba
 
+    def _fill_proba(self, node, X, indices, proba):
+        """Đưa các mẫu indices đi xuống cây; tới lá thì ghi xác suất của lá."""
+        if len(indices) == 0:
+            return
+        if node.feature is None:
+            proba[indices] = node.proba
+            return
+        goes_left = X[indices, node.feature] <= node.threshold
+        self._fill_proba(node.left, X, indices[goes_left], proba)
+        self._fill_proba(node.right, X, indices[~goes_left], proba)
+
     def predict(self, X) -> np.ndarray:
-        proba = self.predict_proba(X)
-        return self.classes_[proba.argmax(axis=1)]
+        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
 
 def _fit_tree(X, y, bootstrap, classes, seed, params):
     """Train một cây trên mẫu bootstrap; để ở cấp module để joblib gửi sang tiến trình con."""
-    tree = DecisionTree(rng=np.random.default_rng(seed), **params)
-    return tree.fit(X[bootstrap], y[bootstrap], classes=classes)
+    return DecisionTree(seed=seed, **params).fit(X[bootstrap], y[bootstrap], classes)
 
 
 class RandomForest(BaseClassifier):
-    """Rừng bootstrap với xác suất dự đoán là trung bình xác suất của các cây."""
-
     name = "random_forest"
 
     def __init__(
         self,
         n_trees: int = 100,
         max_depth: int | None = 24,
-        max_features="sqrt",
-        seed: int = 42,
+        max_features: str | None = "sqrt",
         min_samples_split: int = 10,
-        min_samples_leaf: int = 1,
         max_thresholds: int | None = 16,
+        seed: int = 42,
         n_jobs: int = -1,
     ):
-        if not isinstance(n_trees, (int, np.integer)) or n_trees < 1:
-            raise ValueError("n_trees phải là số nguyên >= 1")
-        self.n_trees, self.max_depth, self.max_features, self.seed = (
-            n_trees,
-            max_depth,
-            max_features,
-            seed,
-        )
-        self.min_samples_split, self.min_samples_leaf = min_samples_split, min_samples_leaf
-        self.max_thresholds, self.n_jobs = max_thresholds, n_jobs
-        self.trees = []
+        self.n_trees = n_trees
+        self.max_depth = max_depth
+        self.max_features = max_features
+        self.min_samples_split = min_samples_split
+        self.max_thresholds = max_thresholds
+        self.seed = seed
+        self.n_jobs = n_jobs
 
     def fit(self, X_train, y_train, X_val=None, y_val=None):
-        """Mỗi cây học từ N mẫu lấy có hoàn lại; validation không dùng để xây cây.
+        """X_val, y_val không dùng; chỉ giữ cho giống interface chung."""
+        X, y = np.asarray(X_train), np.asarray(y_train)
+        self.classes_ = np.unique(y)
 
-        Bootstrap và seed của từng cây được rút tuần tự trước khi chạy song song,
-        nên kết quả giống hệt nhau với mọi n_jobs, và k cây đầu của rừng chính là
-        rừng k cây cùng seed.
-        """
-        X = _check_X(X_train)
-        y = np.asarray(y_train)
-        if y.ndim != 1 or len(y) != len(X) or len(y) == 0:
-            raise ValueError("y_train phải có dạng (N,) và train phải có ít nhất một mẫu")
-        self.classes_, self.n_features_in_ = np.unique(y), X.shape[1]
+        # Rút trước mẫu bootstrap và seed của từng cây, theo thứ tự.
         rng = np.random.default_rng(self.seed)
         draws = []
         for _ in range(self.n_trees):
             bootstrap = rng.integers(0, len(y), size=len(y))
             draws.append((bootstrap, rng.integers(0, 2**32)))
+
         params = {
             "max_depth": self.max_depth,
             "min_samples_split": self.min_samples_split,
             "max_features": self.max_features,
-            "min_samples_leaf": self.min_samples_leaf,
             "max_thresholds": self.max_thresholds,
         }
         self.trees = Parallel(n_jobs=self.n_jobs)(
@@ -277,18 +204,8 @@ class RandomForest(BaseClassifier):
 
     def predict_proba(self, X, n_trees: int | None = None) -> np.ndarray:
         """Trung bình xác suất của n_trees cây đầu; mặc định dùng cả rừng."""
-        if not self.trees:
-            raise RuntimeError("Cần gọi fit trước khi dự đoán")
-        if n_trees is None:
-            n_trees = len(self.trees)
-        if not isinstance(n_trees, (int, np.integer)) or not 1 <= n_trees <= len(self.trees):
-            raise ValueError("n_trees phải là số nguyên trong 1..số cây đã train")
-        X = _check_X(X, self.n_features_in_)
-        proba = np.zeros((len(X), len(self.classes_)), dtype=np.float64)
-        for tree in self.trees[:n_trees]:
-            proba += tree._predict_proba(X)
-        return proba / n_trees
+        trees = self.trees if n_trees is None else self.trees[:n_trees]
+        return sum(tree.predict_proba(X) for tree in trees) / len(trees)
 
     def predict(self, X, n_trees: int | None = None) -> np.ndarray:
-        proba = self.predict_proba(X, n_trees)
-        return self.classes_[proba.argmax(axis=1)]
+        return self.classes_[np.argmax(self.predict_proba(X, n_trees), axis=1)]
