@@ -55,6 +55,7 @@ python -m experiments.hyperparams.random_forest
 # Phần mở rộng
 python -m experiments.cnn_vs_mlp
 python -m experiments.augmentation_exp
+python -m experiments.seed_ensemble_tta
 python -m experiments.run_all --dataset fashion_mnist
 
 # Đối chiếu với scikit-learn
