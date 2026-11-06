@@ -7,19 +7,48 @@ Quy ước:
 - tên mô hình và tên siêu tham số hiển thị theo MODEL_LABELS, PARAM_LABELS (tiếng Việt,
   giữ thuật ngữ quen thuộc như train, validation, accuracy);
 - accuracy hiển thị theo phần trăm; điểm được chọn theo validation đánh dấu bằng ngôi sao.
+
+Bảng màu đã kiểm tra bằng mô phỏng mù màu đỏ/lục (OKLab ΔE, Machado 2009): các màu đứng cạnh
+nhau trong hình so sánh mô hình, và cặp MLP/CNN (vẽ chung trong learning curve), đều tách
+biệt cả với người mù màu (ΔE >= 8) lẫn người nhìn bình thường (ΔE >= 15).
 """
 
 import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import PercentFormatter
 
 FIGURES_DIR = "results/figures"
 FIGSIZE = (6, 4)
 DPI = 150
-TRAIN_COLOR = "tab:blue"
-VAL_COLOR = "tab:orange"
+TRAIN_COLOR = "#2a78d6"  # xanh dương
+VAL_COLOR = "#eb6834"  # cam
+INK = "#333333"  # màu chữ: xám đậm, đỡ gắt hơn đen tuyền
+# Thang một tông xanh, trắng -> xanh đậm, cho ma trận nhầm lẫn
+SEQUENTIAL_CMAP = LinearSegmentedColormap.from_list(
+    "blue_ramp", ["#ffffff", "#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"]
+)
+
+plt.rcParams.update(
+    {
+        "axes.axisbelow": True,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.edgecolor": "#999999",
+        "axes.labelcolor": INK,
+        "axes.titlecolor": INK,
+        "xtick.color": "#666666",
+        "ytick.color": "#666666",
+        "text.color": INK,
+        "grid.color": "#e6e6e6",
+        "grid.linewidth": 0.8,
+        "lines.linewidth": 2,
+        "lines.markersize": 5,
+        "legend.frameon": False,
+    }
+)
 
 MODEL_LABELS = {
     "naive_bayes": "Gaussian NB",
@@ -29,13 +58,14 @@ MODEL_LABELS = {
     "random_forest": "Random Forest",
     "cnn": "CNN",
 }
+# Thứ tự khoá = thứ tự thanh trong hình so sánh; đổi thứ tự thì phải kiểm tra lại màu.
 MODEL_COLORS = {
-    "naive_bayes": "tab:gray",
-    "bernoulli_naive_bayes": "tab:brown",
-    "logistic_regression": "tab:green",
-    "mlp": "tab:blue",
-    "random_forest": "tab:purple",
-    "cnn": "tab:red",
+    "naive_bayes": "#6250d6",  # tím
+    "bernoulli_naive_bayes": "#e87ba4",  # hồng
+    "logistic_regression": "#008300",  # xanh lá
+    "mlp": "#2a78d6",  # xanh dương
+    "random_forest": "#1baf7a",  # xanh ngọc
+    "cnn": "#eb6834",  # cam
 }
 PARAM_LABELS = {
     "var_smoothing": "var_smoothing",
@@ -96,7 +126,7 @@ def plot_sweep(df, model_name, param_name, filename):
         fontsize=11,
     )
     ax.legend(fontsize=9)
-    ax.grid(alpha=0.3)
+    ax.grid()
     return save_figure(fig, filename)
 
 
@@ -107,7 +137,7 @@ def plot_confusion(cm, model_name, filename):
     accuracy = np.trace(cm) / cm.sum()
 
     fig, ax = plt.subplots(figsize=(6, 5))
-    shown = ax.imshow(rates, cmap="Blues", vmin=0, vmax=1)
+    shown = ax.imshow(rates, cmap=SEQUENTIAL_CMAP, vmin=0, vmax=1)
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
             color = "white" if rates[i, j] > 0.5 else "black"
@@ -133,7 +163,13 @@ def plot_model_comparison(test_df, filename):
     y = np.arange(len(names))
 
     fig, (ax_acc, ax_time) = plt.subplots(1, 2, figsize=(12, 0.6 * len(names) + 1.5), sharey=True)
-    ax_acc.barh(y, test_df["accuracy_mean"], xerr=test_df["accuracy_std"].fillna(0), color=colors)
+    ax_acc.barh(
+        y,
+        test_df["accuracy_mean"],
+        xerr=test_df["accuracy_std"].fillna(0),
+        color=colors,
+        ecolor=INK,
+    )
     for i, value in enumerate(test_df["accuracy_mean"]):
         ax_acc.text(value + 0.003, i, f"{value:.2%}", va="center", fontsize=9)
     ax_acc.set_xlim(test_df["accuracy_mean"].min() - 0.05, 1.03)
@@ -150,6 +186,6 @@ def plot_model_comparison(test_df, filename):
     ax_acc.set_yticks(y, labels)
     ax_acc.invert_yaxis()  # mô hình đầu bảng nằm trên cùng
     for ax in (ax_acc, ax_time):
-        ax.grid(axis="x", alpha=0.3)
+        ax.grid(axis="x")
     fig.suptitle("So sánh các mô hình trên tập test")
     return save_figure(fig, filename)
