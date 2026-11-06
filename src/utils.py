@@ -1,7 +1,10 @@
-"""Tiện ích chung: cố định seed, đo thời gian, lưu xác suất dự đoán."""
+"""Tiện ích chung: cố định seed, đo thời gian, ghi cấu hình máy, lưu xác suất dự đoán."""
 
 import os
+import platform
 import random
+import subprocess
+import sys
 import time
 
 import numpy as np
@@ -38,6 +41,53 @@ class Timer:
     def __exit__(self, *exc):
         self.elapsed = time.perf_counter() - self._start
         return False
+
+
+def _cpu_name() -> str:
+    """Tên CPU, ví dụ "Apple M2" hay "Intel(R) Core(TM) i7-12700H"."""
+    try:
+        if platform.system() == "Darwin":
+            command = ["sysctl", "-n", "machdep.cpu.brand_string"]
+            return subprocess.run(command, capture_output=True, text=True).stdout.strip()
+        if platform.system() == "Linux":
+            with open("/proc/cpuinfo") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return platform.processor() or platform.machine()
+
+
+def _ram_gb():
+    """Dung lượng RAM (GB); None nếu hệ điều hành không cho đọc (Windows)."""
+    try:
+        return round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30, 1)
+    except (AttributeError, ValueError, OSError):
+        return None
+
+
+def machine_info() -> dict:
+    """Cấu hình máy đang chạy, ghi kèm kết quả để biết thời gian được đo trên máy nào.
+
+    Không ghi tên máy (hostname) để không lộ thông tin cá nhân khi commit.
+    """
+    info = {
+        "os": platform.platform(),
+        "cpu": _cpu_name(),
+        "cpu_cores": os.cpu_count(),
+        "ram_gb": _ram_gb(),
+        "python": sys.version.split()[0],
+        "numpy": np.__version__,
+    }
+    try:
+        import torch
+
+        info["torch"] = torch.__version__
+        info["gpu"] = torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
+    except ImportError:
+        pass
+    return info
 
 
 def save_probs(probs, dataset: str, model_name: str, split: str) -> str:

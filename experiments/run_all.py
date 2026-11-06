@@ -11,6 +11,8 @@ Mỗi mô hình lưu:
 - ma trận nhầm lẫn trên test: results/tables/<dataset>_<model>_confusion.csv và hình
   results/figures/<dataset>_<model>_confusion.png;
 - hình so sánh các mô hình trên test: results/figures/<dataset>_model_comparison.png;
+- cấu hình máy đã dùng để đo thời gian (CPU, số nhân, RAM, phiên bản thư viện, ngày chạy):
+  results/tables/<dataset>_machine.json;
 - xác suất dự đoán trên val và test: results/probs/<dataset>/<model>_{val,test}.npy,
   để làm ensemble mà không phải train lại.
 Ma trận nhầm lẫn và xác suất lấy từ seed đầu tiên trong --seeds.
@@ -21,7 +23,9 @@ Khi chạy một phần mô hình (--models), các dòng của mô hình khác t
 
 import argparse
 import inspect
+import json
 import os
+from datetime import date
 
 import pandas as pd
 
@@ -33,7 +37,7 @@ from src.models.mlp import MLP
 from src.models.naive_bayes import BernoulliNaiveBayes, GaussianNaiveBayes
 from src.models.random_forest import RandomForest
 from src.plotting import plot_confusion, plot_model_comparison
-from src.utils import SEED, Timer, save_probs, set_seed
+from src.utils import SEED, Timer, machine_info, save_probs, set_seed
 
 # Cấu hình cuối, chọn theo validation (xem experiments/hyperparams/ và results/tables/hyperparam_*):
 MODEL_CONFIGS = {
@@ -100,6 +104,33 @@ def aggregate(df):
     return agg.reset_index()
 
 
+def save_machine_info(args):
+    """Ghi cấu hình máy cho từng mô hình vừa chạy vào results/tables/<dataset>_machine.json.
+
+    Giữ thông tin của các mô hình không chạy lại lần này (giống summary), nên file luôn cho
+    biết mỗi mô hình được đo thời gian trên máy nào. In cảnh báo nếu các mô hình được đo trên
+    nhiều máy khác nhau: khi đó cột thời gian không so sánh trực tiếp được.
+    """
+    path = f"results/tables/{args.dataset}_machine.json"
+    machines = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            machines = json.load(f)
+    info = {**machine_info(), "date": date.today().isoformat()}
+    for name in args.models:
+        seeds = args.seeds if has_seed(MODEL_CONFIGS[name][0]) else args.seeds[:1]
+        machines[name] = {**info, "seeds": seeds}
+    machines = {name: machines[name] for name in MODEL_CONFIGS if name in machines}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(machines, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+    # So máy theo phần cứng và hệ điều hành; khác phiên bản thư viện thì không cảnh báo
+    hardware = {(m["os"], m["cpu"], m["cpu_cores"], m.get("gpu")) for m in machines.values()}
+    if len(hardware) > 1:
+        print(f"Cảnh báo: thời gian được đo trên {len(hardware)} máy khác nhau, xem {path}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="mnist", choices=["mnist", "fashion_mnist"])
@@ -125,6 +156,8 @@ def main():
     order = {name: i for i, name in enumerate(MODEL_CONFIGS)}
     df = df.sort_values("model", key=lambda s: s.map(order), kind="stable")
     df.to_csv(path, index=False)
+
+    save_machine_info(args)
 
     agg = aggregate(df)
     agg.to_csv(f"results/tables/{args.dataset}_summary_agg.csv", index=False)
