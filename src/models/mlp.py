@@ -31,6 +31,10 @@ Early stopping (patience không phải None): sau mỗi epoch tính cross-entrop
 dừng khi val loss không giảm trong `patience` epoch liên tiếp, rồi khôi phục trọng số của
 epoch có val loss nhỏ nhất (self.best_epoch_, đánh số từ 1).
 
+Augmentation (augment không phải None): hàm (X_img (B, 28, 28), rng) -> mảng cùng shape, áp lên
+từng mini-batch train trước khi feedforward (xem src/augmentation.py); rng là chính
+np.random.Generator theo seed dùng để xáo dữ liệu. Không áp lên validation.
+
 Khởi tạo: He (std = sqrt(2 / k_in)) cho ReLU; Xavier đều U(±sqrt(6 / (k_in + k_out))) cho
 sigmoid/tanh; bias bằng 0.
 
@@ -59,6 +63,7 @@ class MLP(BaseClassifier):
         activation: str = "relu",
         patience=None,
         n_classes: int = 10,
+        augment=None,
         seed: int = 42,
     ):
         if activation not in ACTIVATIONS:
@@ -69,6 +74,7 @@ class MLP(BaseClassifier):
         self.lr, self.epochs, self.batch_size = lr, epochs, batch_size
         self.l2, self.momentum, self.activation = l2, momentum, activation
         self.patience, self.n_classes, self.seed = patience, n_classes, seed
+        self.augment = augment
 
     def _init_params(self, n_features, dtype, rng):
         """He cho ReLU, Xavier đều cho sigmoid/tanh; b bằng 0."""
@@ -153,7 +159,11 @@ class MLP(BaseClassifier):
             total_loss = 0.0
             for start in range(0, n, self.batch_size):
                 batch = idx[start : start + self.batch_size]
-                loss, dWs, dbs = self.loss_and_grads(X_train[batch], y_train[batch])
+                X_batch = X_train[batch]
+                if self.augment is not None:
+                    X_img = self.augment(X_batch.reshape(len(batch), 28, 28), rng)
+                    X_batch = X_img.reshape(len(batch), -1).astype(X_train.dtype, copy=False)
+                loss, dWs, dbs = self.loss_and_grads(X_batch, y_train[batch])
                 self._step(dWs, dbs)
                 total_loss += loss * len(batch)
             # float(): loss cộng thêm số hạng L2 (np.float32) nên ép về float Python
