@@ -56,6 +56,7 @@ python -m experiments.augmentation_exp
 python -m experiments.seed_ensemble_tta
 python -m experiments.model_ensemble       # cần chạy run_all trước
 python -m experiments.run_all --dataset fashion_mnist
+python -m experiments.fashion_vs_mnist
 
 # Vẽ lại các hình từ bảng đã lưu, không phải train lại
 python -m experiments.make_figures --dataset mnist

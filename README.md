@@ -57,6 +57,7 @@ python -m experiments.augmentation_exp
 python -m experiments.seed_ensemble_tta
 python -m experiments.model_ensemble       # needs run_all first
 python -m experiments.run_all --dataset fashion_mnist
+python -m experiments.fashion_vs_mnist
 
 # Redraw the figures from the saved tables, without retraining
 python -m experiments.make_figures --dataset mnist
