@@ -2,6 +2,7 @@
 
 Chạy: python -m experiments.hyperparams.cnn                 # 3 seed x 20 epoch (~15 phút CPU)
       python -m experiments.hyperparams.cnn --seeds 0       # 1 seed
+      python -m experiments.hyperparams.cnn --dataset fashion_mnist --epochs 30
 
 Train SimpleCNN với cấu hình cuối trong experiments/run_all.py (MODEL_CONFIGS["cnn"]) nhưng chạy
 MAX_EPOCHS epoch, đo train loss / val loss / val acc sau mỗi epoch (model.history). Learning
@@ -16,6 +17,7 @@ chọn điểm cao nhất là chọn nhiễu và làm val acc báo cáo cao hơn
 chọn: như ở MLP, val loss tăng lại sớm do mạng tự tin quá mức trong khi val acc vẫn giữ.
 
 Kết quả: results/tables/learning_curve_cnn{,_summary}.csv, results/figures/learning_curve_cnn.png
+(thêm tiền tố <dataset>_ nếu không phải MNIST)
 """
 
 import argparse
@@ -30,6 +32,7 @@ from src.utils import Timer, set_seed
 
 MAX_EPOCHS = 20
 CHOSEN_EPOCHS = MODEL_CONFIGS["cnn"][1]["epochs"]  # số epoch đang dùng trong run_all
+DATASET_LABELS = {"mnist": "MNIST", "fashion_mnist": "Fashion-MNIST"}
 
 
 def run_curves(data, seeds, max_epochs=MAX_EPOCHS):
@@ -74,12 +77,14 @@ def summarize(curves, chosen=CHOSEN_EPOCHS):
     return pd.concat([df, mean], ignore_index=True)
 
 
-def plot(curves, chosen=CHOSEN_EPOCHS):
+def plot(curves, dataset="mnist", chosen=CHOSEN_EPOCHS):
     """Trung bình theo seed, dải mờ ± 1 độ lệch chuẩn; nét đứt: số epoch đang dùng."""
+    prefix = "" if dataset == "mnist" else f"{dataset}_"
+    n = curves["seed"].nunique()
     plot_learning_curves(
         curves,
-        "learning_curve_cnn.png",
-        f"CNN: learning curve (trung bình {curves['seed'].nunique()} seed)",
+        f"{prefix}learning_curve_cnn.png",
+        f"{DATASET_LABELS[dataset]}: CNN learning curve (trung bình {n} seed)",
         colors={None: MODEL_COLORS["cnn"]},
         mark_epoch=chosen,
         log_loss=True,
@@ -88,20 +93,22 @@ def plot(curves, chosen=CHOSEN_EPOCHS):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", default="mnist", choices=list(DATASET_LABELS))
     parser.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2])
     parser.add_argument("--epochs", type=int, default=MAX_EPOCHS)
     args = parser.parse_args()
     if args.epochs <= CHOSEN_EPOCHS:
         parser.error(f"--epochs phải lớn hơn {CHOSEN_EPOCHS} để thấy phần sau điểm chọn")
 
-    data = load_dataset("mnist")
+    data = load_dataset(args.dataset)
+    prefix = "" if args.dataset == "mnist" else f"{args.dataset}_"
     curves = run_curves(data, args.seeds, args.epochs)
     summary = summarize(curves)
 
     os.makedirs("results/tables", exist_ok=True)
-    curves.to_csv("results/tables/learning_curve_cnn.csv", index=False)
-    summary.to_csv("results/tables/learning_curve_cnn_summary.csv", index=False)
-    plot(curves)
+    curves.to_csv(f"results/tables/{prefix}learning_curve_cnn.csv", index=False)
+    summary.to_csv(f"results/tables/{prefix}learning_curve_cnn_summary.csv", index=False)
+    plot(curves, args.dataset)
 
     print("\n" + summary.round(4).to_string(index=False))
     per_epoch = curves.groupby("epoch")["val_acc"].agg(["mean", "std"])
