@@ -54,6 +54,7 @@ python -m experiments.hyperparams.random_forest
 python -m experiments.cnn_vs_mlp
 python -m experiments.augmentation_exp
 python -m experiments.seed_ensemble_tta
+python -m experiments.model_ensemble       # cần chạy run_all trước
 python -m experiments.run_all --dataset fashion_mnist
 
 # Vẽ lại các hình từ bảng đã lưu, không phải train lại
