@@ -86,6 +86,7 @@ def plot_mlp_curves(curves, kept_epochs):
         "MLP: SGD thường và SGD + momentum + early stopping",
         group="config",
         mark_epoch=kept_epochs,
+        mark_label="early stopping giữ lại",
     )
 
 

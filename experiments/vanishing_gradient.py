@@ -21,17 +21,11 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.ticker import (
-    FuncFormatter,
-    LogLocator,
-    MaxNLocator,
-    NullFormatter,
-    PercentFormatter,
-)
+from matplotlib.ticker import MaxNLocator
 
 from src.data import load_dataset
 from src.models.mlp import ACTIVATIONS, MLP
-from src.plotting import LINE_COLORS, save_figure
+from src.plotting import LINE_COLORS, save_figure, set_log_axis, set_percent_axis
 from src.utils import SEED, Timer, set_seed
 
 NETWORKS = {"2 lớp ẩn": (256, 128), "6 lớp ẩn": (128,) * 6}
@@ -80,11 +74,8 @@ def plot_grad_norms(df):
             ax.bar(
                 s["layer"] + (k - 1) * width, s["grad_norm"], width, label=act, color=COLORS[act]
             )
-        ax.set_yscale("log")
         # Chỉ hiện các mốc 0.0001, 0.001, ..., 10 dạng số thường; bỏ nhãn phụ kiểu 6×10^-1
-        ax.yaxis.set_major_locator(LogLocator(base=10))
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
-        ax.yaxis.set_minor_formatter(NullFormatter())
+        set_log_axis(ax.yaxis)
         ax.set_xlabel("lớp l (1 = gần đầu vào)")
         ax.set_title(f"{net}: độ lớn gradient lúc khởi tạo")
         ax.set_xticks(sorted(sub["layer"].unique()))
@@ -128,7 +119,7 @@ def plot_train_curves(df):
             ax.axvline(20, linestyle="--", linewidth=1, color="#999999")
             ax.text(20.5, 0.15, "20 epoch\n(sweep activation)", fontsize=8, color="#666666")
         ax.set_ylim(0, 1)
-        ax.yaxis.set_major_formatter(PercentFormatter(1.0))
+        set_percent_axis(ax.yaxis)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True, steps=[1, 2, 5, 10]))
         ax.set_xlabel("epoch")
         ax.set_ylabel("validation accuracy")
