@@ -3,8 +3,8 @@
 Chạy:  python -m experiments.make_figures --dataset mnist
 
 Gồm: sweep siêu tham số, ma trận nhầm lẫn, so sánh mô hình, learning curve (LR, MLP, CNN,
-MLP vs CNN) và vanishing gradient. Hai hình cần mô hình đã train (ảnh trọng số Logistic
-Regression, xác suất pixel Bernoulli NB) được vẽ lại khi chạy script thí nghiệm tương ứng.
+MLP vs CNN, CNN cải tiến) và vanishing gradient. Hai hình cần mô hình đã train (ảnh trọng số
+Logistic Regression, xác suất pixel Bernoulli NB) được vẽ lại khi chạy script thí nghiệm tương ứng.
 """
 
 import argparse
@@ -13,7 +13,7 @@ import os
 
 import pandas as pd
 
-from experiments import cnn_vs_mlp, vanishing_gradient
+from experiments import cnn_improved, cnn_vs_mlp, vanishing_gradient
 from experiments.hyperparams import cnn, logistic_regression, mlp
 from src.plotting import MODEL_LABELS, plot_confusion, plot_model_comparison, plot_sweep
 
@@ -45,6 +45,10 @@ def mnist_only_figures():
     curves = read_table("cnn_vs_mlp_curves")
     if curves is not None:
         cnn_vs_mlp.plot_curves(curves)
+
+    curves = read_table("cnn_improved_curves")
+    if curves is not None:
+        cnn_improved.plot_curves(curves)
 
     grad_norms = read_table("vanishing_gradient_grad_norms")
     if grad_norms is not None:
