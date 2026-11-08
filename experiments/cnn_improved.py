@@ -30,7 +30,6 @@ Kết quả (tiền tố <dataset>_ nếu không phải MNIST):
 import argparse
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -39,6 +38,7 @@ from src.augmentation import get_augment
 from src.data import load_dataset
 from src.ensemble import soft_vote
 from src.models.cnn import ImprovedCNN
+from src.plotting import plot_learning_curves
 from src.utils import Timer, save_probs, set_seed
 
 COMMON = {"lr": 1e-3, "epochs": 15, "batch_size": 128, "channels": (16, 32), "hidden": 128}
@@ -49,6 +49,18 @@ CONFIGS = {
     "v2_full": {"batchnorm": True, "dropout": 0.3, "schedule": "cosine"},
 }
 TABLES, FIGURES, CACHE = "results/tables", "results/figures", "results/cache"
+# Tên hiển thị trong hình: mỗi cấu hình thêm một kỹ thuật so với cấu hình trước
+CONFIG_LABELS = {
+    "v2_plain": "v2_plain",
+    "v2_bn": "+ BatchNorm",
+    "v2_bn_drop": "+ Dropout 0.3",
+    "v2_full": "+ lr cosine (v2_full)",
+}
+# 4 màu khác sắc cho 4 cấu hình (LINE_COLORS chỉ có 3 màu; xanh / cam để dành cho train /
+# validation): olive, xanh lá, tím, đỏ rượu; v2_full (cấu hình được chọn) dùng màu đậm nhất.
+# Kiểm tra như src/plotting.py (OKLab ΔE, Machado 2009): mọi cặp tách biệt với người nhìn bình
+# thường (ΔE >= 18) và người mù màu đỏ/lục (ΔE >= 9); tương phản với nền trắng >= 3:1.
+STEP_COLORS = ["#999933", "#117733", "#7b5bd6", "#882255"]
 
 
 def acc(P, y):
@@ -124,19 +136,25 @@ def baseline_rows(seeds, dataset):
     ]
 
 
-def plot_curves(curves, path, dataset):
-    fig, ax = plt.subplots(figsize=(7, 4))
-    for config, g in curves.groupby("config", sort=False):
-        stats = g.groupby("epoch")["val_acc"]
-        ax.plot(stats.mean().index, stats.mean(), marker="o", ms=3, label=config)
-    ax.set_xlabel("epoch")
-    ax.set_ylabel("validation accuracy")
-    ax.set_ylim(0.985, 0.996)
-    ax.grid(alpha=0.3)
-    ax.legend(fontsize=8)
-    ax.set_title(f"{dataset}: CNN cải tiến, val acc theo epoch (trung bình theo seed)")
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+def plot_curves(curves, dataset="mnist"):
+    """Learning curve các cấu hình, chỉ dùng các seed mà MỌI cấu hình đều có.
+
+    v2_full có thêm seed: lấy trung bình 3 seed cho nó và 1 seed cho các cấu hình khác thì
+    đường v2_full mượt hơn hẳn, so sánh không công bằng. Kết quả đủ seed nằm ở bảng _agg.
+    """
+    common = set.intersection(*(set(g["seed"]) for _, g in curves.groupby("config")))
+    part = curves[curves["seed"].isin(common)].copy()
+    part["config"] = part["config"].map(CONFIG_LABELS)
+    seeds = ", ".join(str(s) for s in sorted(common))
+    prefix = "" if dataset == "mnist" else f"{dataset}_"
+    return plot_learning_curves(
+        part,
+        f"{prefix}cnn_improved_curves.png",
+        f"CNN cải tiến: thêm lần lượt từng kỹ thuật (seed {seeds})",
+        group="config",
+        colors=dict(zip(CONFIG_LABELS.values(), STEP_COLORS)),
+        log_loss=True,
+    )
 
 
 def main():
@@ -170,9 +188,18 @@ def main():
                 "fit_time_s": float(r["fit_time_s"]),
             }
         )
-        for e, (tl, va) in enumerate(zip(r["train_loss"], r["val_acc"]), start=1):
+        for e, (tl, vl, va) in enumerate(
+            zip(r["train_loss"], r["val_loss"], r["val_acc"]), start=1
+        ):
             curves.append(
-                {"config": config, "seed": seed, "epoch": e, "train_loss": tl, "val_acc": va}
+                {
+                    "config": config,
+                    "seed": seed,
+                    "epoch": e,
+                    "train_loss": tl,
+                    "val_loss": vl,
+                    "val_acc": va,
+                }
             )
     df, curves = pd.DataFrame(rows), pd.DataFrame(curves)
 
@@ -211,7 +238,7 @@ def main():
     df.to_csv(f"{TABLES}/{prefix}cnn_improved.csv", index=False)
     agg.to_csv(f"{TABLES}/{prefix}cnn_improved_agg.csv", index=False)
     curves.to_csv(f"{TABLES}/{prefix}cnn_improved_curves.csv", index=False)
-    plot_curves(curves, f"{FIGURES}/{prefix}cnn_improved_curves.png", args.dataset)
+    plot_curves(curves, args.dataset)
 
     pd.set_option("display.width", 200)
     print("\n" + df.round(4).to_string(index=False))
