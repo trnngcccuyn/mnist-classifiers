@@ -1,0 +1,7 @@
+model,val_acc,test_acc
+naive_bayes,0.6732,0.6735
+bernoulli_naive_bayes,0.7323,0.7213
+logistic_regression,0.8508,0.8409
+mlp,0.8861,0.8712
+random_forest,0.8816,0.8722
+cnn,0.9094,0.904
