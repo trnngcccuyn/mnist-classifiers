@@ -13,12 +13,12 @@ Gồm (mỗi sweep chỉ đổi một yếu tố, chọn theo validation, không
 import argparse
 import os
 
-import matplotlib.pyplot as plt
 import pandas as pd
 
 from src.data import load_dataset
 from src.metrics import accuracy
 from src.models.mlp import ACTIVATIONS, MLP
+from src.plotting import plot_learning_curves
 from src.utils import Timer, set_seed
 
 from .common import sweep
@@ -44,8 +44,7 @@ def learning_curve(data, configs=CURVE_CONFIGS):
 
     Dùng luôn model.history mà fit đã lưu, không phải train lại từng epoch.
     """
-    rows, summary = [], []
-    fig, (ax_loss, ax_vloss, ax_acc) = plt.subplots(1, 3, figsize=(15, 4))
+    rows, summary, kept_epochs = [], [], {}
     for label, params in configs.items():
         set_seed()
         model = MLP(**params)
@@ -57,20 +56,14 @@ def learning_curve(data, configs=CURVE_CONFIGS):
             rows.append(
                 {"config": label, "epoch": e, "train_loss": tl, "val_loss": vl, "val_acc": va}
             )
+        if model.best_epoch_ is not None:  # epoch được early stopping giữ lại
+            kept_epochs[label] = model.best_epoch_
 
-        line = ax_loss.plot(epochs, h["train_loss"], marker="o", ms=3, label=label)[0]
-        ax_vloss.plot(epochs, h["val_loss"], marker="o", ms=3, color=line.get_color())
-        ax_acc.plot(epochs, h["val_acc"], marker="o", ms=3, color=line.get_color())
-        if model.best_epoch_ is not None:  # đánh dấu epoch được early stopping giữ lại
-            for ax in (ax_vloss, ax_acc):
-                ax.axvline(model.best_epoch_, ls="--", lw=1, color=line.get_color())
-
-        kept = model.best_epoch_ or epochs[-1]
         summary.append(
             {
                 "config": label,
                 "epochs_run": len(epochs),
-                "kept_epoch": kept,
+                "kept_epoch": model.best_epoch_ or epochs[-1],
                 "train_acc": accuracy(data["y_train"], model.predict(data["X_train"])),
                 "val_acc": accuracy(data["y_val"], model.predict(data["X_val"])),
                 "fit_time_s": t.elapsed,
@@ -78,25 +71,23 @@ def learning_curve(data, configs=CURVE_CONFIGS):
         )
         print(summary[-1])
 
-    for ax, ylabel, title in [
-        (ax_loss, "train loss (cross-entropy + L2)", "Train loss"),
-        (ax_vloss, "validation loss (cross-entropy)", "Validation loss"),
-        (ax_acc, "validation accuracy", "Validation accuracy"),
-    ]:
-        ax.set_xlabel("epoch")
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        ax.grid(alpha=0.3)
-    ax_loss.legend(fontsize=8)
-    ax_acc.set_title("Validation accuracy (nét đứt: epoch early stopping giữ lại)", fontsize=10)
-
     os.makedirs("results/tables", exist_ok=True)
-    os.makedirs("results/figures", exist_ok=True)
     pd.DataFrame(rows).to_csv("results/tables/learning_curve_mlp.csv", index=False)
     pd.DataFrame(summary).to_csv("results/tables/learning_curve_mlp_summary.csv", index=False)
-    fig.savefig("results/figures/learning_curve_mlp.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    plot_mlp_curves(pd.DataFrame(rows), kept_epochs)
     return pd.DataFrame(summary)
+
+
+def plot_mlp_curves(curves, kept_epochs):
+    """kept_epochs: {cấu hình: epoch early stopping giữ lại}, vẽ nét đứt."""
+    plot_learning_curves(
+        curves,
+        "learning_curve_mlp.png",
+        "MLP: SGD thường và SGD + momentum + early stopping",
+        group="config",
+        mark_epoch=kept_epochs,
+        mark_label="early stopping giữ lại",
+    )
 
 
 def main():

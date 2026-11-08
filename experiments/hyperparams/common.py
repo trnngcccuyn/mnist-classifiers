@@ -2,10 +2,10 @@
 
 import os
 
-import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.metrics import accuracy
+from src.metrics import accuracy, evaluate
+from src.plotting import plot_sweep
 from src.utils import Timer, set_seed
 
 
@@ -39,19 +39,25 @@ def save_sweep(df, model_name, param_name, dataset="mnist"):
     if dataset != "mnist":
         name = f"{dataset}_{name}"
     os.makedirs("results/tables", exist_ok=True)
-    os.makedirs("results/figures", exist_ok=True)
     df.to_csv(f"results/tables/hyperparam_{name}.csv", index=False)
-
-    fig, ax = plt.subplots(figsize=(6, 4))
-    x = range(len(df))
-    ax.plot(x, df["train_acc"], marker="o", label="train")
-    ax.plot(x, df["val_acc"], marker="o", label="validation")
-    ax.set_xticks(x, df[param_name])
-    ax.set_xlabel(param_name)
-    ax.set_ylabel("accuracy")
-    ax.set_title(f"{model_name}: {param_name}")
-    ax.legend()
-    ax.grid(alpha=0.3)
-    fig.savefig(f"results/figures/hyperparam_{name}.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    plot_sweep(df, model_name, param_name, f"hyperparam_{name}.png")
     return df
+
+
+def best(df):
+    """Dòng có validation accuracy cao nhất của một lần sweep."""
+    return df.loc[df["val_acc"].idxmax()]
+
+
+def evaluate_on_test(model, data):
+    """Fit cấu hình đã chọn trên train rồi đánh giá test đúng một lần, kèm thời gian."""
+    with Timer() as fit_timer:
+        model.fit(data["X_train"], data["y_train"])
+    with Timer() as predict_timer:
+        prediction = model.predict(data["X_test"])
+    test_metrics = evaluate(data["y_test"], prediction)
+    return {
+        **{f"test_{key}": value for key, value in test_metrics.items()},
+        "fit_time_s": fit_timer.elapsed,
+        "test_predict_time_s": predict_timer.elapsed,
+    }

@@ -21,17 +21,18 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
+from matplotlib.ticker import MaxNLocator
 
 from src.data import load_dataset
 from src.models.mlp import ACTIVATIONS, MLP
+from src.plotting import LINE_COLORS, save_figure, set_log_axis, set_percent_axis
 from src.utils import SEED, Timer, set_seed
 
 NETWORKS = {"2 lớp ẩn": (256, 128), "6 lớp ẩn": (128,) * 6}
 SHALLOW_EPOCHS = 60
 DEEP_EPOCHS = 20
 LR = 0.1  # SGD thường như sweep activation, để so sánh công bằng giữa các hàm kích hoạt
-COLORS = {"relu": "tab:blue", "sigmoid": "tab:orange", "tanh": "tab:green"}
+COLORS = dict(zip(ACTIVATIONS, LINE_COLORS))
 
 
 def grad_norms(data, n_samples=512):
@@ -53,33 +54,7 @@ def grad_norms(data, n_samples=512):
                 )
     df = pd.DataFrame(rows)
     df.to_csv("results/tables/vanishing_gradient_grad_norms.csv", index=False)
-
-    # sharey: hai mạng dùng chung trục y nên so trực tiếp được độ lớn gradient
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
-    width = 0.27
-    for ax, (net, sub) in zip(axes, df.groupby("network", sort=False)):
-        for k, act in enumerate(ACTIVATIONS):
-            s = sub[sub["activation"] == act]
-            ax.bar(
-                s["layer"] + (k - 1) * width, s["grad_norm"], width, label=act, color=COLORS[act]
-            )
-        ax.set_yscale("log")
-        # Chỉ hiện các mốc 0.0001, 0.001, ..., 10 dạng số thường; bỏ nhãn phụ kiểu 6×10^-1
-        ax.yaxis.set_major_locator(LogLocator(base=10))
-        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
-        ax.yaxis.set_minor_formatter(NullFormatter())
-        ax.set_xlabel("lớp l (1 = gần đầu vào)")
-        ax.set_title(f"{net}: độ lớn gradient lúc khởi tạo")
-        ax.set_xticks(sorted(sub["layer"].unique()))
-        ax.grid(alpha=0.3, axis="y")
-        ax.tick_params(axis="y", labelleft=True)  # sharey ẩn số ở hình phải; hiện lại cho dễ đọc
-    axes[0].set_ylabel(
-        "độ lớn gradient của lớp l\n" + r"$\|\partial J / \partial W^{(l)}\|$ (thang log)"
-    )
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.06))
-    fig.savefig("results/figures/vanishing_gradient_grad_norms.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    plot_grad_norms(df)
 
     ratio = df.groupby(["network", "activation"], sort=False)["grad_norm"].agg(
         lambda g: g.iloc[0] / g.iloc[-1]
@@ -89,10 +64,34 @@ def grad_norms(data, n_samples=512):
     return df
 
 
+def plot_grad_norms(df):
+    # sharey: hai mạng dùng chung trục y nên so trực tiếp được độ lớn gradient
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+    width = 0.27
+    for ax, (net, sub) in zip(axes, df.groupby("network", sort=False)):
+        for k, act in enumerate(ACTIVATIONS):
+            s = sub[sub["activation"] == act]
+            ax.bar(
+                s["layer"] + (k - 1) * width, s["grad_norm"], width, label=act, color=COLORS[act]
+            )
+        # Chỉ hiện các mốc 0.0001, 0.001, ..., 10 dạng số thường; bỏ nhãn phụ kiểu 6×10^-1
+        set_log_axis(ax.yaxis)
+        ax.set_xlabel("lớp l (1 = gần đầu vào)")
+        ax.set_title(f"{net}: độ lớn gradient lúc khởi tạo")
+        ax.set_xticks(sorted(sub["layer"].unique()))
+        ax.grid(axis="y")
+        ax.tick_params(axis="y", labelleft=True)  # sharey ẩn số ở hình phải; hiện lại cho dễ đọc
+    axes[0].set_ylabel(
+        "độ lớn gradient của lớp l\n" + r"$\|\partial J / \partial W^{(l)}\|$ (thang log)"
+    )
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.06))
+    save_figure(fig, "vanishing_gradient_grad_norms.png")
+
+
 def train_curves(data):
     rows = []
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    for ax, (net, hidden) in zip(axes, NETWORKS.items()):
+    for net, hidden in NETWORKS.items():
         epochs = SHALLOW_EPOCHS if net == "2 lớp ẩn" else DEEP_EPOCHS
         for act in ACTIVATIONS:
             set_seed()
@@ -104,20 +103,30 @@ def train_curves(data):
                 rows.append(
                     {"network": net, "activation": act, "epoch": e, "train_loss": tl, "val_acc": va}
                 )
-            ax.plot(range(1, len(val_acc) + 1), val_acc, label=act, color=COLORS[act])
             print(f"{net}, {act}: val acc cuối = {val_acc[-1]:.4f} ({t.elapsed:.0f} s)")
+    df = pd.DataFrame(rows)
+    df.to_csv("results/tables/vanishing_gradient_curves.csv", index=False)
+    plot_train_curves(df)
+
+
+def plot_train_curves(df):
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    for ax, (net, sub) in zip(axes, df.groupby("network", sort=False)):
+        for act in ACTIVATIONS:
+            s = sub[sub["activation"] == act]
+            ax.plot(s["epoch"], s["val_acc"], label=act, color=COLORS[act])
         if net == "2 lớp ẩn":
-            ax.axvline(20, ls="--", lw=1, color="gray")
-            ax.text(20.5, 0.15, "20 epoch\n(sweep activation)", fontsize=8, color="gray")
+            ax.axvline(20, linestyle="--", linewidth=1, color="#999999")
+            ax.text(20.5, 0.15, "20 epoch\n(sweep activation)", fontsize=8, color="#666666")
         ax.set_ylim(0, 1)
+        set_percent_axis(ax.yaxis)
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True, steps=[1, 2, 5, 10]))
         ax.set_xlabel("epoch")
         ax.set_ylabel("validation accuracy")
         ax.set_title(f"{net} (SGD, lr = {LR})")
-        ax.grid(alpha=0.3)
+        ax.grid()
         ax.legend(loc="center right")
-    pd.DataFrame(rows).to_csv("results/tables/vanishing_gradient_curves.csv", index=False)
-    fig.savefig("results/figures/vanishing_gradient_curves.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    save_figure(fig, "vanishing_gradient_curves.png")
 
 
 def main():
@@ -127,7 +136,6 @@ def main():
 
     data = load_dataset("mnist")
     os.makedirs("results/tables", exist_ok=True)
-    os.makedirs("results/figures", exist_ok=True)
     if "grad" in args.only:
         grad_norms(data)
     if "train" in args.only:

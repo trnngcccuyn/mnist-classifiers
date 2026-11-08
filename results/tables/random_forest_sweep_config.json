@@ -22,6 +22,7 @@
   "max_features": "sqrt",
   "max_thresholds": 16,
   "selection": "Chọn n_trees trước, rồi chọn max_depth; không phải grid search",
+  "n_trees_fit_time": "Ước lượng: thời gian train cả rừng * k / số cây lớn nhất",
   "selected_n_trees": 100,
   "selected_max_depth": 24
 }

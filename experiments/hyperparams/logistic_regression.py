@@ -12,12 +12,12 @@ Gồm (chọn theo validation, không dùng test):
 import argparse
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from src.data import load_dataset
 from src.models.logistic_regression import LogisticRegression
+from src.plotting import MODEL_COLORS, plot_class_images, plot_learning_curves
 from src.utils import set_seed
 
 from .common import sweep
@@ -37,41 +37,28 @@ def learning_curve(model):
     h = model.history
     df = pd.DataFrame({"epoch": np.arange(1, len(h["train_loss"]) + 1), **h})
     df.to_csv("results/tables/learning_curve_logistic_regression.csv", index=False)
-
-    fig, (ax_loss, ax_acc) = plt.subplots(1, 2, figsize=(10, 4))
-    ax_loss.plot(
-        df["epoch"], df["train_loss"], marker="o", ms=3, label="train (cross-entropy + L2)"
-    )
-    ax_loss.plot(df["epoch"], df["val_loss"], marker="o", ms=3, label="validation (cross-entropy)")
-    ax_loss.set_ylabel("loss")
-    ax_loss.set_title("Logistic Regression: loss")
-    ax_loss.legend(fontsize=8)
-    ax_acc.plot(df["epoch"], df["val_acc"], marker="o", ms=3, color="tab:orange")
-    ax_acc.set_ylabel("validation accuracy")
-    ax_acc.set_title("Logistic Regression: validation accuracy")
-    for ax in (ax_loss, ax_acc):
-        ax.set_xlabel("epoch")
-        ax.grid(alpha=0.3)
-    fig.savefig(
-        "results/figures/learning_curve_logistic_regression.png", dpi=150, bbox_inches="tight"
-    )
-    plt.close(fig)
+    plot_curve(df)
     print(f"learning curve: val acc cuối = {df['val_acc'].iloc[-1]:.4f}")
+
+
+def plot_curve(curves):
+    plot_learning_curves(
+        curves,
+        "learning_curve_logistic_regression.png",
+        "Logistic Regression: learning curve",
+        colors={None: MODEL_COLORS["logistic_regression"]},
+    )
 
 
 def weight_images(model):
     """Ảnh trọng số W[:, c] của từng lớp: đỏ = pixel có mực làm tăng điểm lớp c, xanh = giảm."""
-    images = model.weight_images()
-    vmax = np.abs(images).max()
-    fig, axes = plt.subplots(2, 5, figsize=(10, 4.4))
-    for c, ax in enumerate(axes.flat):
-        im = ax.imshow(images[c], cmap="RdBu_r", vmin=-vmax, vmax=vmax)
-        ax.set_title(f"lớp {c}")
-        ax.axis("off")
-    fig.colorbar(im, ax=axes, shrink=0.8, label="trọng số")
-    fig.suptitle("Logistic Regression: trọng số của từng lớp")
-    fig.savefig("results/figures/logistic_regression_weights.png", dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    plot_class_images(
+        model.weight_images(),
+        "logistic_regression_weights.png",
+        "Logistic Regression: trọng số của từng lớp",
+        "trọng số",
+        symmetric=True,
+    )
 
 
 def main():
@@ -81,7 +68,6 @@ def main():
 
     data = load_dataset("mnist")
     os.makedirs("results/tables", exist_ok=True)
-    os.makedirs("results/figures", exist_ok=True)
     if "lr" in args.only:
         sweep(LogisticRegression, "lr", LEARNING_RATES, data)
     if "l2" in args.only:
