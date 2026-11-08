@@ -318,6 +318,8 @@ def plot_learning_curves(
     groups = [None] if group is None else list(dict.fromkeys(curves[group]))
     fig, axes = plt.subplots(1, len(panels), figsize=(5 * len(panels), 4), squeeze=False)
     axes = axes[0]
+    # Một số epoch chung cho nhiều đường: vẽ một nét đứt màu trung tính thay vì mỗi đường một nét
+    shared_epoch = group is not None and mark_epoch is not None and not isinstance(mark_epoch, dict)
 
     for k, name in enumerate(groups):
         part = curves if name is None else curves[curves[group] == name]
@@ -330,10 +332,14 @@ def plot_learning_curves(
             ax.plot(mean.index, mean, marker="o", markersize=3, color=color, label=label)
             if values.size().max() > 1:
                 ax.fill_between(mean.index, mean - std, mean + std, color=color, alpha=0.2)
-            if epoch is not None:
+            if epoch is not None and not shared_epoch:
                 # Chú thích nét đứt nằm trong legend của ô val acc, không ghi lên tiêu đề
                 dashed_label = f"{mark_label}: {epoch}" if col == "val_acc" else None
                 ax.axvline(epoch, linestyle="--", linewidth=1, color=color, label=dashed_label)
+    if shared_epoch:
+        for ax, (col, _) in zip(axes, panels):
+            dashed_label = f"{mark_label}: {mark_epoch}" if col == "val_acc" else None
+            ax.axvline(mark_epoch, linestyle="--", linewidth=1, color="#999999", label=dashed_label)
 
     for ax, (col, label) in zip(axes, panels):
         ax.set_xlabel("epoch")

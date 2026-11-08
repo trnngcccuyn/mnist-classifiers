@@ -58,6 +58,10 @@ python -m experiments.seed_ensemble_tta
 python -m experiments.cnn_improved
 python -m experiments.model_ensemble       # needs run_all first
 python -m experiments.run_all --dataset fashion_mnist
+python -m experiments.fashion_vs_mnist
+python -m experiments.hyperparams.cnn --dataset fashion_mnist --epochs 30
+python -m experiments.augmentation_exp --dataset fashion_mnist
+python -m experiments.augmentation_ablation --seeds 0 1 2
 
 # Redraw the figures from the saved tables, without retraining
 python -m experiments.make_figures --dataset mnist
