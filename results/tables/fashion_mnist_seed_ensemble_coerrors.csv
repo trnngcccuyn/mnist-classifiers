@@ -1,0 +1,3 @@
+variant,seeds,errors_each,n_any_wrong,n_all_wrong,pct_all_wrong_of_any,n_soft_vote_wrong,n_hard_vote_wrong
+cnn,0 1 2,960 / 971 / 998,1535,494,32.182410423452765,869,878
+cnn_aug,0 1 2,1363 / 1402 / 1325,1945,797,40.976863753213365,1266,1321

@@ -29,6 +29,7 @@ import pandas as pd
 
 from experiments.run_all import MODEL_CONFIGS
 from src.plotting import (
+    DATASET_LABELS,
     INK,
     MODEL_COLORS,
     MODEL_LABELS,
@@ -50,7 +51,6 @@ CLASSES = (
     "Ankle boot",
 )
 DATASETS = ("mnist", "fashion_mnist")
-DATASET_LABELS = {"mnist": "MNIST", "fashion_mnist": "Fashion-MNIST"}
 TABLES = "results/tables"
 
 

@@ -55,6 +55,7 @@ plt.rcParams.update(
     }
 )
 
+DATASET_LABELS = {"mnist": "MNIST", "fashion_mnist": "Fashion-MNIST"}
 MODEL_LABELS = {
     "naive_bayes": "Gaussian NB",
     "bernoulli_naive_bayes": "Bernoulli NB",

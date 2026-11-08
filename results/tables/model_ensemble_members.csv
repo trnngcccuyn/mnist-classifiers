@@ -3,5 +3,5 @@ naive_bayes,0.7991,0.8145
 bernoulli_naive_bayes,0.8352,0.8451
 logistic_regression,0.9175,0.9225
 mlp,0.9816,0.9831
-random_forest,0.9661,0.9672
+random_forest,0.9666,0.9674
 cnn,0.9894,0.9919

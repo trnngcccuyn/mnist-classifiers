@@ -42,12 +42,19 @@ from experiments.run_all import MODEL_CONFIGS
 from src.augmentation import get_augment
 from src.data import load_dataset
 from src.ensemble import hard_vote, soft_vote
+from src.plotting import (
+    DATASET_LABELS,
+    LINE_COLORS,
+    MODEL_COLORS,
+    save_figure,
+    set_percent_axis,
+)
 from src.tta import get_tta_augment, tta_views_proba
 from src.utils import SEED, Timer, save_probs, set_seed
 
 VARIANTS = ("cnn", "cnn_aug")
 N_VIEWS = 8
-COLORS = {"cnn": "tab:orange", "cnn_aug": "tab:red"}
+COLORS = {"cnn": MODEL_COLORS["cnn"], "cnn_aug": LINE_COLORS[2]}  # không dùng xanh/cam train/val
 LABELS = {"cnn": "CNN", "cnn_aug": "CNN + aug"}
 TABLES, FIGURES, CACHE = "results/tables", "results/figures", "results/cache"
 
@@ -202,7 +209,7 @@ def summary_table(members, ens, n):
     return pd.DataFrame(rows)
 
 
-def plot(ens, tta, path, dataset):
+def plot(ens, tta, filename, dataset):
     fig, axes = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
     ax = axes[0]
     for variant in VARIANTS:
@@ -214,10 +221,11 @@ def plot(ens, tta, path, dataset):
         ax.plot(e["n_models"], e["test_acc_tta_mean"], "s--", ms=4, color=c, label=label)
     ax.set_xlabel("số mạng trong ensemble (soft voting)")
     ax.set_ylabel("test accuracy")
-    ax.set_title("Seed ensemble (dải mờ: min–max trên mọi tổ hợp seed)")
+    set_percent_axis(ax.yaxis)
+    ax.set_title("Seed ensemble (dải mờ: min–max trên mọi tổ hợp seed)", fontsize=11)
     ax.set_xticks(sorted(ens["n_models"].unique()))
-    ax.legend(fontsize=8)
-    ax.grid(alpha=0.3)
+    ax.legend(fontsize=9)
+    ax.grid()
 
     ax = axes[1]
     t = tta[tta["split"] == "test"]
@@ -229,12 +237,11 @@ def plot(ens, tta, path, dataset):
         ax.fill_between(mean.index, mean - std, mean + std, color=c, alpha=0.15)
     ax.set_xlabel("số bản biến đổi lúc test (0 = không TTA)")
     ax.set_xticks(sorted(t["n_views"].unique()))
-    ax.set_title("TTA, 1 mạng (trung bình ± độ lệch chuẩn theo seed)")
-    ax.legend(fontsize=8)
-    ax.grid(alpha=0.3)
-    fig.suptitle(f"{dataset}: seed ensemble và TTA", y=1.02)
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    ax.set_title("TTA, 1 mạng (trung bình ± độ lệch chuẩn theo seed)", fontsize=11)
+    ax.legend(fontsize=9)
+    ax.grid()
+    fig.suptitle(f"{DATASET_LABELS[dataset]}: seed ensemble và TTA", y=1.02)
+    return save_figure(fig, filename)
 
 
 def main():
@@ -268,7 +275,7 @@ def main():
     ens.to_csv(f"{TABLES}/{prefix}seed_ensemble.csv", index=False)
     co.to_csv(f"{TABLES}/{prefix}seed_ensemble_coerrors.csv", index=False)
     summary.to_csv(f"{TABLES}/{prefix}seed_ensemble_tta_summary.csv", index=False)
-    plot(ens, tta, f"{FIGURES}/{prefix}seed_ensemble_tta.png", args.dataset)
+    plot(ens, tta, f"{prefix}seed_ensemble_tta.png", args.dataset)
 
     first = args.seeds[0]
     for v in VARIANTS:

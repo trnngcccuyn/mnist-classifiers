@@ -1,0 +1,6 @@
+config,models,val_acc,test_acc
+mô hình đơn tốt nhất theo val,cnn,0.9094,0.904
+"tất cả, soft voting",GNB+BNB+LR+MLP+RF+CNN,0.8687,0.8602
+"tất cả, hard voting",GNB+BNB+LR+MLP+RF+CNN,0.8783,0.867
+"tất cả, trọng số tìm trên val",MLP=0.20 RF=0.40 CNN=0.40,0.9136,0.9093
+tập con soft voting tốt nhất theo val,RF+CNN,0.911,0.9054

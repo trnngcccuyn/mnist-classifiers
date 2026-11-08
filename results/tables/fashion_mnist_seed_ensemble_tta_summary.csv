@@ -1,0 +1,9 @@
+variant,config,test_acc,test_acc_std
+cnn,1 mạng (trung bình seed),0.90216,0.0016652327164694062
+cnn,1 mạng + TTA,0.80526,0.00985433914577735
+cnn,5 mạng,0.9143,
+cnn,5 mạng + TTA,0.8567,
+cnn_aug,1 mạng (trung bình seed),0.86736,0.007225510362597224
+cnn_aug,1 mạng + TTA,0.87478,0.005824259609598443
+cnn_aug,5 mạng,0.8782,
+cnn_aug,5 mạng + TTA,0.8862,

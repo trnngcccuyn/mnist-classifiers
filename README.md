@@ -12,6 +12,8 @@ compare them on accuracy, training time, prediction time and interpretability. E
 a simple CNN, data augmentation, and Fashion-MNIST. scikit-learn is used only to
 cross-check our results.
 
+![Pipeline overview](results/figures/pipeline_overview.png)
+
 ![Model comparison](results/figures/mnist_model_comparison.png)
 
 ## Team

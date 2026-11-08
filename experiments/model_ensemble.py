@@ -34,6 +34,15 @@ import pandas as pd
 
 from src.data import load_dataset
 from src.ensemble import co_errors, hard_vote, search_weights, soft_vote
+from src.plotting import (
+    DATASET_LABELS,
+    INK,
+    MODEL_LABELS,
+    SEQUENTIAL_CMAP,
+    VAL_COLOR,
+    save_figure,
+    set_percent_axis,
+)
 from src.utils import load_probs, save_probs
 
 MODELS = (
@@ -44,6 +53,7 @@ MODELS = (
     "random_forest",
     "cnn",
 )
+# Tên viết tắt để ghép tên tập con ("LR+MLP+CNN"); nhãn trục dùng MODEL_LABELS
 SHORT = {
     "naive_bayes": "GNB",
     "bernoulli_naive_bayes": "BNB",
@@ -52,7 +62,7 @@ SHORT = {
     "random_forest": "RF",
     "cnn": "CNN",
 }
-TABLES, FIGURES = "results/tables", "results/figures"
+TABLES = "results/tables"
 
 
 def acc(P, y):
@@ -135,43 +145,64 @@ def summary_table(probs, members, subsets, d, weights):
     return pd.DataFrame(rows, columns=cols), P_w
 
 
-def plot(co, summary, path, dataset):
+def plot(co, summary, filename, dataset):
     names = list(co.index)
-    labels = [SHORT.get(m, m) for m in names]
-    fig, axes = plt.subplots(
-        1, 2, figsize=(16, 5), gridspec_kw={"width_ratios": [1, 1.4]}, layout="constrained"
+    labels = [MODEL_LABELS.get(m, m).replace(" ", "\n") for m in names]
+    fig, (ax, ax_sum) = plt.subplots(
+        1, 2, figsize=(15, 5.5), gridspec_kw={"width_ratios": [1, 1.2]}, layout="constrained"
     )
 
-    ax = axes[0]
     M = co.to_numpy().copy()
     np.fill_diagonal(M, np.nan)
-    im = ax.imshow(M, cmap="Reds", vmin=0, vmax=1)
+    shown = ax.imshow(M, cmap=SEQUENTIAL_CMAP, vmin=0, vmax=1)
     for i in range(len(names)):
         for j in range(len(names)):
-            text = f"{int(co.iloc[i, j])}" if i == j else f"{M[i, j]:.2f}"
-            ax.text(j, i, text, ha="center", va="center", fontsize=8)
-    ax.set_xticks(range(len(names)), labels)
-    ax.set_yticks(range(len(names)), labels)
-    ax.set_title("Cùng sai trên test: #(cả hai sai) / #(ít nhất một sai)\n(đường chéo: số lỗi)")
-    fig.colorbar(im, ax=ax, fraction=0.046)
+            if i == j:
+                text, color = f"{int(co.iloc[i, j])}", INK
+            else:
+                text, color = f"{M[i, j]:.2f}", "white" if M[i, j] > 0.6 else "black"
+            ax.text(j, i, text, ha="center", va="center", fontsize=9, color=color)
+    ax.set_xticks(range(len(names)), labels, fontsize=9)
+    ax.set_yticks(range(len(names)), labels, fontsize=9)
+    ax.tick_params(length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_title(
+        "Cùng sai trên test: #(cả hai sai) / #(ít nhất một sai)\n(đường chéo: số lỗi)", fontsize=11
+    )
+    fig.colorbar(shown, ax=ax, shrink=0.8, label="tỉ lệ cùng sai")
 
-    ax = axes[1]
-    y = np.arange(len(summary))[::-1]
-    ax.barh(y, 100 * summary["test_acc"], color="tab:blue", alpha=0.8, label="test")
-    ax.plot(100 * summary["val_acc"], y, "k|", ms=14, mew=2, label="val")
-    for yi, (v, m) in zip(y, zip(summary["test_acc"], summary["models"])):
-        ax.text(100 * v + 0.02, yi, f"{100 * v:.2f}%  ({m})", va="center", fontsize=7)
-    ax.set_yticks(y, summary["config"], fontsize=8)
-    lo = 100 * min(summary["test_acc"].min(), summary["val_acc"].min())
-    ax.set_xlim(lo - 0.3, 100 + 0.6 * (100 - lo))  # chừa chỗ cho nhãn bên phải
-    ax.set_xticks(np.arange(np.ceil(lo - 0.3), 100.01))
-    ax.set_xlabel("accuracy (%)")
-    ax.set_title("Ensemble khác loại mô hình (chọn theo val)")
-    ax.legend(fontsize=8, loc="upper right")
-    ax.grid(alpha=0.3, axis="x")
-    fig.suptitle(f"{dataset}: ensemble các mô hình")
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    # Chấm thay cho thanh: chênh lệch giữa các cấu hình chỉ vài phần mười điểm, đọc theo vị trí
+    # trên trục hẹp, không theo độ dài thanh (thanh cắt trục sẽ phóng đại chênh lệch).
+    y = np.arange(len(summary))
+    ax_sum.hlines(y, summary["test_acc"], summary["val_acc"], color="#cccccc", linewidth=3)
+    ax_sum.plot(summary["val_acc"], y, "o", color=VAL_COLOR, markersize=8, label="validation")
+    ax_sum.plot(summary["test_acc"], y, "D", color=INK, markersize=7, label="test")
+    right = summary[["val_acc", "test_acc"]].max(axis=1)
+    for yi, (x, (_, r)) in enumerate(zip(right, summary.iterrows())):
+        ax_sum.annotate(
+            f"test {r['test_acc']:.2%}  ({MODEL_LABELS.get(r['models'], r['models'])})",
+            (x, yi),
+            xytext=(10, 0),
+            textcoords="offset points",
+            va="center",
+            fontsize=9,
+            color=INK,
+        )
+    ax_sum.set_yticks(y, summary["config"], fontsize=9)
+    ax_sum.invert_yaxis()
+    lo = min(summary["val_acc"].min(), summary["test_acc"].min())
+    hi = max(summary["val_acc"].max(), summary["test_acc"].max())
+    ax_sum.set_xlim(lo - 0.1 * (hi - lo), hi + 0.7 * (hi - lo))  # chừa chỗ cho số ghi bên phải
+    # Chỗ trống bên phải chỉ để ghi số: bỏ các vạch quá 100%
+    ax_sum.set_xticks([t for t in ax_sum.get_xticks() if t <= 1])
+    set_percent_axis(ax_sum.xaxis)
+    ax_sum.set_xlabel("accuracy")
+    ax_sum.grid(axis="x")
+    ax_sum.legend(fontsize=9, loc="lower left")
+    ax_sum.set_title("Ensemble khác loại mô hình (mọi lựa chọn theo validation)", fontsize=11)
+    fig.suptitle(f"{DATASET_LABELS[dataset]}: ensemble các mô hình")
+    return save_figure(fig, filename)
 
 
 def main():
@@ -185,7 +216,6 @@ def main():
 
     prefix = "" if args.dataset == "mnist" else f"{args.dataset}_"
     os.makedirs(TABLES, exist_ok=True)
-    os.makedirs(FIGURES, exist_ok=True)
     d = load_dataset(args.dataset)
     probs = {m: {s: load_probs(args.dataset, m, s) for s in ("val", "test")} for m in args.models}
 
@@ -199,7 +229,7 @@ def main():
     co.to_csv(f"{TABLES}/{prefix}model_ensemble_coerrors.csv")
     subsets.to_csv(f"{TABLES}/{prefix}model_ensemble_subsets.csv", index=False)
     summary.to_csv(f"{TABLES}/{prefix}model_ensemble_summary.csv", index=False)
-    plot(co, summary, f"{FIGURES}/{prefix}model_ensemble.png", args.dataset)
+    plot(co, summary, f"{prefix}model_ensemble.png", args.dataset)
     for split, P in P_w.items():
         save_probs(P, args.dataset, "model_ensemble", split)
 

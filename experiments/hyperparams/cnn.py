@@ -27,12 +27,11 @@ import pandas as pd
 
 from experiments.run_all import MODEL_CONFIGS
 from src.data import load_dataset
-from src.plotting import MODEL_COLORS, plot_learning_curves
+from src.plotting import DATASET_LABELS, MODEL_COLORS, plot_learning_curves
 from src.utils import Timer, set_seed
 
 MAX_EPOCHS = 20
 CHOSEN_EPOCHS = MODEL_CONFIGS["cnn"][1]["epochs"]  # số epoch đang dùng trong run_all
-DATASET_LABELS = {"mnist": "MNIST", "fashion_mnist": "Fashion-MNIST"}
 
 
 def run_curves(data, seeds, max_epochs=MAX_EPOCHS):

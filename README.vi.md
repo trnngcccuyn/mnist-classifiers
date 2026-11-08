@@ -11,6 +11,8 @@ Regression, MLP, Random Forest), huấn luyện trên MNIST và so sánh về đ
 gian huấn luyện, thời gian dự đoán và khả năng giải thích. Phần mở rộng: CNN đơn giản,
 tăng cường dữ liệu và Fashion-MNIST. scikit-learn chỉ được dùng để đối chiếu kết quả.
 
+![Tổng quan quy trình](results/figures/pipeline_overview.png)
+
 ![So sánh các mô hình](results/figures/mnist_model_comparison.png)
 
 ## Thông tin nhóm
