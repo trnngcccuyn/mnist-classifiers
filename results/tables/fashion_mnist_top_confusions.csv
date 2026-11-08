@@ -21,9 +21,9 @@ mlp,T-shirt/top,Shirt,112,11.2
 mlp,Shirt,Coat,74,7.4
 random_forest,Shirt,T-shirt/top,159,15.9
 random_forest,Pullover,Coat,128,12.8
-random_forest,Shirt,Pullover,124,12.4
-random_forest,Coat,Pullover,95,9.5
+random_forest,Shirt,Pullover,123,12.3
 random_forest,Shirt,Coat,94,9.4
+random_forest,Coat,Pullover,93,9.3
 cnn,T-shirt/top,Shirt,124,12.4
 cnn,Coat,Shirt,114,11.4
 cnn,Shirt,T-shirt/top,80,8.0

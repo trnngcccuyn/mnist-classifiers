@@ -87,6 +87,8 @@ def plot(curves, dataset="mnist", chosen=CHOSEN_EPOCHS):
         f"{DATASET_LABELS[dataset]}: CNN learning curve (trung bình {n} seed)",
         colors={None: MODEL_COLORS["cnn"]},
         mark_epoch=chosen,
+        # Trên Fashion-MNIST không chọn lại số epoch, chỉ giữ cấu hình của MNIST
+        mark_label="epoch được chọn" if dataset == "mnist" else "số epoch của run_all (MNIST)",
         log_loss=True,
     )
 
