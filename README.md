@@ -10,8 +10,8 @@ Midterm project for the Pattern Recognition course. We implement four classifier
 scratch (Naïve Bayes, Logistic Regression, MLP, Random Forest), train them on MNIST, and
 compare them on accuracy, training time, prediction time and interpretability. Extensions:
 a CNN, data augmentation, seed ensembles and test-time augmentation (TTA), ensembles of
-different models, an improved CNN, and Fashion-MNIST. scikit-learn is used only to
-cross-check our results.
+different models, an improved CNN, Fashion-MNIST, and a demo for hand-drawn digits.
+scikit-learn is used only to cross-check our results.
 
 ![Pipeline overview](results/figures/pipeline_overview.png)
 
@@ -21,7 +21,7 @@ cross-check our results.
 
 | Full name | Student ID | Responsibilities |
 |---|---|---|
-| Tran Ngoc Cac Uyen | 24280030 | Data preprocessing, metrics, Logistic Regression, MLP, CNN and improved CNN, data augmentation, seed ensemble and TTA, notebook |
+| Tran Ngoc Cac Uyen | 24280030 | Data preprocessing, metrics, Logistic Regression, MLP, CNN and improved CNN, data augmentation, seed ensemble and TTA, notebook, demo |
 | Le Minh Phuc Tien | 24280107 | Naïve Bayes, Random Forest, multi-model ensembles, Fashion-MNIST, pipeline figure |
 
 - **Course:** Pattern Recognition (MTH10322)
@@ -86,6 +86,21 @@ and `cnn_improved` take about 30–60 minutes). These two scripts cache each tra
 `notebooks/main_results.ipynb` reproduces the main results in a few minutes: it retrains the
 fast models to check them against the saved tables, and recomputes the accuracy of every
 model (CNNs included) from the predicted probabilities saved in `results/probs/`.
+
+### Demo
+
+Hand-drawn digit recognition demo (Gradio) using the final model: an ensemble of 3 improved
+CNNs (`v2_full`). It needs the weights `results/cache/mnist/cnn_improved/v2_full_seed{0,1,2}.pt`
+(not committed; create them with `python -m experiments.cnn_improved --configs v2_full --seeds 0 1 2`).
+
+```bash
+pip install "gradio>=5"
+python -m demo.app            # open http://127.0.0.1:7860
+python -m demo.app --check    # check the weights: test accuracy should be 99.63%
+```
+
+Two tabs: draw a digit (the drawing is converted to the 28×28 MNIST format before prediction),
+or sample a random MNIST test image, optionally only from the images the model gets wrong.
 
 ## Results
 
@@ -185,6 +200,7 @@ mnist-classifiers/
 │       ├── random_forest.py    # decision trees and the forest
 │       └── cnn.py              # CNN (from the lectures) and improved CNN
 ├── experiments/                # experiment scripts
+├── demo/                       # Gradio demo (app.py, preprocess.py)
 ├── notebooks/                  # notebook reproducing the main results
 ├── tests/                      # tests, including cross-checks against scikit-learn
 ├── results/

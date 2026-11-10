@@ -10,7 +10,8 @@
 Regression, MLP, Random Forest), huấn luyện trên MNIST và so sánh về độ chính xác, thời
 gian huấn luyện, thời gian dự đoán và khả năng giải thích. Phần mở rộng: CNN, tăng cường dữ
 liệu, seed ensemble và test-time augmentation (TTA), ensemble nhiều loại mô hình, CNN cải
-tiến và Fashion-MNIST. scikit-learn chỉ được dùng để đối chiếu kết quả.
+tiến, Fashion-MNIST và demo nhận dạng chữ số vẽ tay. scikit-learn chỉ được dùng để đối
+chiếu kết quả.
 
 ![Tổng quan quy trình](results/figures/pipeline_overview.png)
 
@@ -20,7 +21,7 @@ tiến và Fashion-MNIST. scikit-learn chỉ được dùng để đối chiếu
 
 | Họ và tên | MSSV | Phụ trách |
 |---|---|---|
-| Trần Ngọc Các Uyên | 24280030 | Tiền xử lý dữ liệu, độ đo, Logistic Regression, MLP, CNN và CNN cải tiến, tăng cường dữ liệu, seed ensemble và TTA, notebook |
+| Trần Ngọc Các Uyên | 24280030 | Tiền xử lý dữ liệu, độ đo, Logistic Regression, MLP, CNN và CNN cải tiến, tăng cường dữ liệu, seed ensemble và TTA, notebook, demo |
 | Lê Minh Phúc Tiên | 24280107 | Naïve Bayes, Random Forest, ensemble nhiều mô hình, Fashion-MNIST, hình quy trình |
 
 - **Môn học:** Nhận dạng mẫu (MTH10322)
@@ -85,6 +86,21 @@ và `cnn_improved` mất khoảng 30–60 phút). Hai script này lưu từng l�
 `notebooks/main_results.ipynb` tái tạo kết quả chính trong vài phút: train lại các mô hình
 nhanh để đối chiếu với bảng đã lưu, và tính lại accuracy của mọi mô hình (kể cả CNN) từ xác
 suất dự đoán đã lưu trong `results/probs/`.
+
+### Demo
+
+Demo nhận dạng chữ số vẽ tay (Gradio), dùng mô hình cuối: ensemble 3 CNN cải tiến `v2_full`.
+Cần trọng số `results/cache/mnist/cnn_improved/v2_full_seed{0,1,2}.pt` (không commit; tạo bằng
+`python -m experiments.cnn_improved --configs v2_full --seeds 0 1 2`).
+
+```bash
+pip install "gradio>=5"
+python -m demo.app            # mở http://127.0.0.1:7860
+python -m demo.app --check    # kiểm tra trọng số: accuracy test phải là 99.63%
+```
+
+Hai tab: vẽ chữ số (ảnh vẽ được đưa về dạng MNIST 28×28 trước khi dự đoán), hoặc lấy ngẫu
+nhiên ảnh test MNIST, có tuỳ chọn chỉ lấy các ảnh mô hình đoán sai.
 
 ## Kết quả
 
@@ -181,6 +197,7 @@ mnist-classifiers/
 │       ├── random_forest.py    # cây quyết định + rừng
 │       └── cnn.py              # CNN (theo bài giảng) và CNN cải tiến
 ├── experiments/                # script chạy thí nghiệm
+├── demo/                       # demo Gradio (app.py, preprocess.py)
 ├── notebooks/                  # notebook tái tạo kết quả chính
 ├── tests/                      # kiểm thử, gồm đối chiếu với scikit-learn
 ├── results/
